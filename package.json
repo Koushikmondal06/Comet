@@ -1,10 +1,10 @@
 {
-  "name": "ai-commit",
+  "name": "comet",
   "version": "1.0.0",
   "description": "AI-powered commit message generator CLI",
   "main": "dist/index.js",
   "bin": {
-    "aicommit": "dist/index.js"
+    "comet": "dist/index.js"
   },
   "scripts": {
     "build": "tsc",
