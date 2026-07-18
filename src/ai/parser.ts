@@ -1,12 +1,5 @@
 import { CommitSuggestion } from "../types/commit";
 
-function stripCodeFences(text: string): string {
-  return text
-    .replace(/^```(?:json|JSON)?\s*\n?/gm, "")
-    .replace(/```\s*$/gm, "")
-    .trim();
-}
-
 function tryParseJson(text: string): any {
   try {
     return JSON.parse(text);
@@ -16,26 +9,12 @@ function tryParseJson(text: string): any {
 }
 
 function extractJsonArray(raw: string): unknown[] | null {
-  const cleaned = stripCodeFences(raw);
-
-  // Try parsing the whole cleaned response as JSON first
-  const directParse = tryParseJson(cleaned);
-  if (Array.isArray(directParse)) return directParse;
-
-  // Find the first [ and last ] to extract the array
-  const firstBracket = cleaned.indexOf("[");
-  const lastBracket = cleaned.lastIndexOf("]");
+  const firstBracket = raw.indexOf("[");
+  const lastBracket = raw.lastIndexOf("]");
 
   if (firstBracket !== -1 && lastBracket > firstBracket) {
-    const slice = cleaned.substring(firstBracket, lastBracket + 1);
+    const slice = raw.substring(firstBracket, lastBracket + 1);
     const parsed = tryParseJson(slice);
-    if (Array.isArray(parsed)) return parsed;
-  }
-
-  // Try greedy regex as fallback
-  const greedyMatch = cleaned.match(/\[[\s\S]*\]/);
-  if (greedyMatch) {
-    const parsed = tryParseJson(greedyMatch[0]);
     if (Array.isArray(parsed)) return parsed;
   }
 
@@ -43,20 +22,13 @@ function extractJsonArray(raw: string): unknown[] | null {
 }
 
 function extractJsonObject(raw: string): Record<string, any> | null {
-  const cleaned = stripCodeFences(raw);
-
-  const directParse = tryParseJson(cleaned);
-  if (directParse && typeof directParse === "object" && !Array.isArray(directParse)) {
-    return directParse;
-  }
-
-  const firstBrace = cleaned.indexOf("{");
-  const lastBrace = cleaned.lastIndexOf("}");
+  const firstBrace = raw.indexOf("{");
+  const lastBrace = raw.lastIndexOf("}");
 
   if (firstBrace !== -1 && lastBrace > firstBrace) {
-    const slice = cleaned.substring(firstBrace, lastBrace + 1);
+    const slice = raw.substring(firstBrace, lastBrace + 1);
     const parsed = tryParseJson(slice);
-    if (parsed && typeof parsed === "object") return parsed;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed;
   }
 
   return null;
@@ -68,11 +40,7 @@ export function parseCommitSuggestions(
   try {
     const parsed = extractJsonArray(rawResponse);
     if (!parsed) {
-      throw new Error(`No JSON array found in response. Raw: ${rawResponse.substring(0, 200)}`);
-    }
-
-    if (!Array.isArray(parsed)) {
-      throw new Error("Parsed response is not an array");
+      throw new Error(`No JSON array found. Response: ${rawResponse.substring(0, 300)}`);
     }
 
     return parsed
@@ -117,7 +85,6 @@ export function parseJsonObjectResponse(
   }
 }
 
-// Backwards-compatible aliases
 export function parseReviewResponse(rawResponse: string): unknown {
   return parseJsonObjectResponse(rawResponse);
 }
