@@ -37,7 +37,7 @@ export async function generateWithOpenAI(
             { role: "user", content: prompt },
           ],
           temperature: 0.7,
-          max_tokens: 2048,
+          max_tokens: 8192,
         }),
         signal: controller.signal as any,
       });

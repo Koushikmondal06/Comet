@@ -8,6 +8,35 @@ function tryParseJson(text: string): any {
   }
 }
 
+function tryFixTruncatedJson(text: string): any {
+  let fixed = text.trim();
+
+  // Remove trailing commas before closing brackets
+  fixed = fixed.replace(/,\s*$/, "");
+
+  // Try closing open structures
+  const openBrackets = (fixed.match(/\[/g) || []).length;
+  const closeBrackets = (fixed.match(/\]/g) || []).length;
+  const openBraces = (fixed.match(/\{/g) || []).length;
+  const closeBraces = (fixed.match(/\}/g) || []).length;
+
+  // Close any open string
+  const quoteCount = (fixed.match(/"/g) || []).length;
+  if (quoteCount % 2 !== 0) {
+    fixed += '"';
+  }
+
+  // Close open objects first, then arrays
+  for (let i = 0; i < openBraces - closeBraces; i++) {
+    fixed += "}";
+  }
+  for (let i = 0; i < openBrackets - closeBrackets; i++) {
+    fixed += "]";
+  }
+
+  return tryParseJson(fixed);
+}
+
 function extractJsonArray(raw: string): unknown[] | null {
   const firstBracket = raw.indexOf("[");
   const lastBracket = raw.lastIndexOf("]");
@@ -15,6 +44,13 @@ function extractJsonArray(raw: string): unknown[] | null {
   if (firstBracket !== -1 && lastBracket > firstBracket) {
     const slice = raw.substring(firstBracket, lastBracket + 1);
     const parsed = tryParseJson(slice);
+    if (Array.isArray(parsed)) return parsed;
+  }
+
+  // Response might be truncated - try to fix it
+  if (firstBracket !== -1) {
+    const slice = raw.substring(firstBracket);
+    const parsed = tryFixTruncatedJson(slice);
     if (Array.isArray(parsed)) return parsed;
   }
 
