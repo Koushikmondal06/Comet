@@ -4,7 +4,7 @@ import { AIResponse } from "./provider";
 
 const MAX_RETRIES = 3;
 const TIMEOUT_MS = 30000;
-const RETRYABLE_STATUSES = [429, 500, 502, 503];
+const RETRYABLE_STATUSES = [429, 500, 502, 503, 504];
 
 export async function generateWithGemini(
   prompt: string,

@@ -9,23 +9,27 @@ export function createCommit(message: string): boolean {
     });
     return true;
   } catch (error: any) {
-    const stderr = error.stderr || "";
-    const stdout = error.stdout || "";
-    const output = stderr || stdout || error.message || "Unknown error";
+    const stderr = error.stderr ? error.stderr.toString() : "";
+    const stdout = error.stdout ? error.stdout.toString() : "";
+    const msg = error.message || "";
+    const allOutput = stderr || stdout || msg;
 
-    if (output.includes("nothing to commit")) {
+    if (allOutput.includes("nothing to commit")) {
       throw new Error("No changes to commit. All files are already committed.");
     }
-    if (output.includes("could not find Username")) {
+    if (allOutput.includes("could not find Username")) {
       throw new Error("Git credentials not configured.");
     }
-    if (output.includes("Please tell me who you are")) {
+    if (
+      allOutput.includes("Please tell me who you are") ||
+      allOutput.includes("author identity unknown")
+    ) {
       throw new Error(
-        "Git user not configured. Run:\ngit config --global user.name \"Your Name\"\ngit config --global user.email \"you@example.com\""
+        "Git user not configured. Run:\ngit config user.name \"Your Name\"\ngit config user.email \"you@example.com\""
       );
     }
 
-    throw new Error(`Git commit failed: ${output}`);
+    throw new Error(`Git commit failed: ${allOutput}`);
   }
 }
 
