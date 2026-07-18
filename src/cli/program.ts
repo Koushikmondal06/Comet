@@ -24,6 +24,7 @@ program
   .option("--provider <provider>", "AI provider (gemini/openai)")
   .option("--model <model>", "AI model to use")
   .option("-n, --count <count>", "Number of suggestions", "3")
+  .option("--choose-model", "Choose AI model before generating")
   .option("-y, --yes", "Auto-confirm (skip confirmation prompts)")
   .option("-q, --quiet", "Suppress non-essential output")
   .action(async (options) => {

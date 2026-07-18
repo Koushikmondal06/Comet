@@ -21,6 +21,7 @@ export async function configCommand(): Promise<void> {
         { name: "View current config", value: "view" },
         { name: "Set API key", value: "apikey" },
         { name: "Set provider (gemini/openai)", value: "provider" },
+        { name: "Set AI model", value: "model" },
         { name: "Toggle emoji prefix", value: "emoji" },
         { name: "Toggle auto-commit", value: "autoCommit" },
         { name: "Set theme (dark/light)", value: "theme" },
@@ -104,6 +105,35 @@ export async function configCommand(): Promise<void> {
       ]);
       updateConfig({ provider: provider as AIProvider });
       logger.success(`Provider set to ${provider}`);
+      break;
+    }
+
+    case "model": {
+      const geminiModels = [
+        { name: "Gemini 2.5 Flash (fast, recommended)", value: "gemini-2.5-flash" },
+        { name: "Gemini 2.5 Pro (most capable)", value: "gemini-2.5-pro" },
+        { name: "Gemini 2.0 Flash", value: "gemini-2.0-flash" },
+        { name: "Gemini 2.0 Flash-Lite", value: "gemini-2.0-flash-lite" },
+      ];
+      const openaiModels = [
+        { name: "GPT-4o (recommended)", value: "gpt-4o" },
+        { name: "GPT-4o Mini (fast, cheap)", value: "gpt-4o-mini" },
+        { name: "GPT-4 Turbo", value: "gpt-4-turbo" },
+        { name: "GPT-3.5 Turbo (cheapest)", value: "gpt-3.5-turbo" },
+        { name: "o1 (reasoning model)", value: "o1" },
+        { name: "o1 Mini (fast reasoning)", value: "o1-mini" },
+      ];
+      const models = config.provider === "gemini" ? geminiModels : openaiModels;
+      const { model } = await inquirer.prompt([
+        {
+          type: "list",
+          name: "model",
+          message: `Select ${config.provider} model:`,
+          choices: models,
+        },
+      ]);
+      updateConfig({ model });
+      logger.success(`Model set to ${model}`);
       break;
     }
 
