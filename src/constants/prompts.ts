@@ -23,6 +23,9 @@ export const PROMPTS = {
 5. Be specific and descriptive
 6. Focus on the "what" and "why", not the "how"
 
+## Writing Style
+Write commit messages in this style: {mood}
+
 ## Output Format
 Return a JSON array with exactly {count} commit message suggestions:
 [

@@ -30,9 +30,10 @@ export async function generateCommitSuggestions(
   context: AIContext,
   count: number = 3,
   provider?: AIProvider,
-  model?: string
+  model?: string,
+  mood?: string
 ): Promise<string> {
-  const prompt = buildCommitPrompt(context, count);
+  const prompt = buildCommitPrompt(context, count, undefined, undefined, mood);
   const response = await generateAIResponse(prompt, provider, model);
   return response.content;
 }

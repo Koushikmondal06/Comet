@@ -15,7 +15,8 @@ export function buildCommitPrompt(
   context: AIContext,
   count: number,
   maxLength: number = 72,
-  language: string = "en"
+  language: string = "en",
+  mood?: string
 ): string {
   return PROMPTS.commit
     .replace("{repository}", context.repository)
@@ -33,7 +34,8 @@ export function buildCommitPrompt(
     .replace("{diff}", truncateDiff(context.diff))
     .replace("{count}", count.toString())
     .replace("{max_length}", String(maxLength))
-    .replace("{language}", language);
+    .replace("{language}", language)
+    .replace("{mood}", mood || "standard");
 }
 
 export function buildReviewPrompt(context: AIContext): string {

@@ -95,8 +95,21 @@ export async function commitCommand(options: CommitCommandOptions): Promise<void
       chosenModel = result.model;
     }
 
+    let commitMood = "";
+    if (options.chooseModel) {
+      const moodResult = await inquirer.prompt([
+        {
+          type: "input",
+          name: "mood",
+          message: "Commit style (e.g. concise, detailed, casual, formal):",
+          default: "standard",
+        },
+      ]);
+      commitMood = moodResult.mood;
+    }
+
     const rawResponse = await withSpinner("Contacting AI", async () => {
-      return generateCommitSuggestions(context, count, options.provider as any, chosenModel);
+      return generateCommitSuggestions(context, count, options.provider as any, chosenModel, commitMood);
     });
 
     const suggestions = parseCommitSuggestions(rawResponse);
