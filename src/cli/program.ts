@@ -68,7 +68,14 @@ program
   .name("comet")
   .version("1.0.8")
   .description("AI-powered commit message generator")
-  .option("--no-banner", "Suppress the ASCII banner");
+  .option("--no-banner", "Suppress the ASCII banner")
+  .helpOption(false);
+
+program
+  .option("-h, --help", "Display help for command", () => {
+    showHelp();
+    process.exit(0);
+  });
 
 program
   .command("commit", { isDefault: true })
