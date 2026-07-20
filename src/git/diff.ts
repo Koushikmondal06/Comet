@@ -6,6 +6,7 @@ export function getStagedDiff(): string {
   try {
     return execFileSync("git", ["diff", "--cached"], {
       encoding: "utf-8",
+      stdio: ["ignore", "pipe", "pipe"],
       maxBuffer: 10 * 1024 * 1024,
     }).trim();
   } catch {
@@ -17,6 +18,7 @@ export function getStagedDiffStat(): string {
   try {
     return execFileSync("git", ["diff", "--cached", "--stat"], {
       encoding: "utf-8",
+      stdio: ["ignore", "pipe", "pipe"],
     }).trim();
   } catch {
     return "";
@@ -28,7 +30,7 @@ export function getStagedFiles(): ChangedFile[] {
     const output = execFileSync(
       "git",
       ["diff", "--cached", "--name-status"],
-      { encoding: "utf-8" }
+      { encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] }
     ).trim();
 
     if (!output) return [];

@@ -6,7 +6,7 @@
   <img src="https://img.shields.io/npm/v/@koushikmondal06/comet?color=blue" alt="npm version" />
   <img src="https://img.shields.io/npm/dm/@koushikmondal06/comet" alt="downloads" />
   <img src="https://img.shields.io/npm/l/@koushikmondal06/comet" alt="license" />
-  <img src="https://img.shields.io/badge/node-%3E%3D16-green" alt="node version" />
+  <img src="https://img.shields.io/badge/node-%3E%3D18-green" alt="node version" />
 </p>
 
 <p align="center">
@@ -85,12 +85,13 @@ comet --push
 | `-p, --push` | Push after commit |
 | `-d, --dry-run` | Show suggestions only |
 | `-m, --message <msg>` | Use this message directly |
-| `-n, --count <n>` | Number of suggestions (default: 3) |
+| `-n, --count <n>` | Number of suggestions (default: 3, max: 10) |
 | `--choose-model` | Interactively pick an AI model before generating |
+| `--style <style>` | Commit message style (e.g. concise, detailed, casual) |
 | `-y, --yes` | Auto-confirm (skip prompts) |
 | `-q, --quiet` | Suppress non-essential output |
-| `--provider <name>` | AI provider: `gemini` or `openai` |
-| `--model <name>` | Specific AI model to use |
+| `--provider <name>` | AI provider: `gemini` or `openai` (also on `review`, `explain`, `refactor`) |
+| `--model <name>` | Specific AI model to use (also on `review`, `explain`, `refactor`) |
 | `--no-banner` | Suppress the ASCII banner |
 
 ---

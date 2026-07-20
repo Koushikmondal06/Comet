@@ -1,4 +1,5 @@
 import { CommitSuggestion } from "../types/commit";
+import { isValidCommitType, sanitizeCommitMessage } from "../utils/validator";
 
 function tryParseJson(text: string): any {
   try {
@@ -20,8 +21,8 @@ function tryFixTruncatedJson(text: string): any {
   const openBraces = (fixed.match(/\{/g) || []).length;
   const closeBraces = (fixed.match(/\}/g) || []).length;
 
-  // Close any open string
-  const quoteCount = (fixed.match(/"/g) || []).length;
+  // Close any open string (ignore escaped quotes when counting)
+  const quoteCount = (fixed.replace(/\\[\s\S]/g, "").match(/"/g) || []).length;
   if (quoteCount % 2 !== 0) {
     fixed += '"';
   }
@@ -89,11 +90,12 @@ export function parseCommitSuggestions(
         );
       })
       .map((item) => ({
-        message: String(item.message),
+        message: sanitizeCommitMessage(String(item.message)),
         type: String(item.type) as CommitSuggestion["type"],
         scope: item.scope ? String(item.scope) : undefined,
         description: item.description ? String(item.description) : "",
-      }));
+      }))
+      .filter((item) => item.message.length > 0 && isValidCommitType(item.type));
   } catch (error) {
     throw new Error(
       `Failed to parse AI response: ${

@@ -1,15 +1,16 @@
-import chalk from "chalk";
-import { getStagedDiff, getStagedFiles } from "../../git/diff";
+import { getStagedDiff } from "../../git/diff";
 import { hasStagedChanges, stageAllFiles } from "../../git/status";
-import { generateAIResponse } from "../../ai/provider";
+import { generateAIResponse, resolveProviderOption } from "../../ai/provider";
 import { buildRefactorPrompt } from "../../ai/prompts";
 import { parseReviewResponse } from "../../ai/parser";
 import { withSpinner } from "../ui/spinner";
-import { showBanner } from "../ui/banner";
 import { logger } from "../../utils/logger";
+import { isPromptCancel } from "../../utils/helpers";
 import { confirmAction } from "../prompts/confirm";
 import { printTable } from "../ui/table";
+import { ensureApiKey } from "../../utils/env";
 import { EMOJIS } from "../../constants/emojis";
+import { AIOptions } from "./review";
 
 interface RefactorSuggestion {
   file?: string;
@@ -24,8 +25,9 @@ interface RefactorResult {
   suggestions?: RefactorSuggestion[];
 }
 
-export async function refactorCommand(): Promise<void> {
+export async function refactorCommand(options: AIOptions = {}): Promise<void> {
   try {
+    const provider = resolveProviderOption(options.provider);
     if (!hasStagedChanges()) {
       const shouldStage = await confirmAction(
         "No staged changes found. Stage all changes?"
@@ -43,8 +45,10 @@ export async function refactorCommand(): Promise<void> {
 
     const prompt = buildRefactorPrompt(diff);
 
+    await ensureApiKey(provider);
+
     const response = await withSpinner("Analyzing code for refactoring suggestions...", async () => {
-      return generateAIResponse(prompt);
+      return generateAIResponse(prompt, provider, options.model);
     });
 
     const parsed = parseReviewResponse(response.content) as RefactorResult;
@@ -79,6 +83,10 @@ export async function refactorCommand(): Promise<void> {
       logger.success("No refactoring suggestions — code looks clean!");
     }
   } catch (error) {
+    if (isPromptCancel(error)) {
+      logger.warn("Cancelled.");
+      return;
+    }
     logger.error(
       `Refactor failed: ${error instanceof Error ? error.message : "Unknown error"}`
     );

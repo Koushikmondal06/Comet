@@ -1,22 +1,47 @@
-import * as dotenv from "dotenv";
 import * as path from "path";
 import * as fs from "fs";
-import inquirer from "inquirer";
+import { password } from "@inquirer/prompts";
 import { AIProvider } from "../types/config";
 import { loadConfig } from "../config/config";
 import { getConfigDir } from "./files";
 
-dotenv.config();
+// Minimal .env parser (KEY=value lines); replaces the dotenv dependency.
+// Existing process.env values are never overwritten.
+function loadEnvFile(filePath: string): void {
+  let content: string;
+  try {
+    content = fs.readFileSync(filePath, "utf-8");
+  } catch {
+    return;
+  }
+
+  for (const line of content.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const eq = trimmed.indexOf("=");
+    if (eq <= 0) continue;
+    const key = trimmed.slice(0, eq).trim();
+    let value = trimmed.slice(eq + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+    if (process.env[key] === undefined) {
+      process.env[key] = value;
+    }
+  }
+}
+
+loadEnvFile(path.join(process.cwd(), ".env"));
 
 function getEnvFilePath(): string {
   return path.join(getConfigDir(), ".env");
 }
 
 function loadLocalEnv(): void {
-  const envPath = getEnvFilePath();
-  if (fs.existsSync(envPath)) {
-    dotenv.config({ path: envPath });
-  }
+  loadEnvFile(getEnvFilePath());
 }
 
 loadLocalEnv();
@@ -73,7 +98,8 @@ export function saveApiKeyToEnv(provider: AIProvider, apiKey: string): void {
     envContent = envContent.trim() + `\n${envVarName}=${apiKey}\n`;
   }
 
-  fs.writeFileSync(envPath, envContent.trim() + "\n", "utf-8");
+  fs.writeFileSync(envPath, envContent.trim() + "\n", { encoding: "utf-8", mode: 0o600 });
+  fs.chmodSync(envPath, 0o600);
   process.env[envVarName] = apiKey;
 }
 
@@ -88,9 +114,9 @@ export function getApiKeyForProvider(provider: AIProvider): string {
   throw new Error(`Missing ${envVarName}. Run 'comet config' to set it.`);
 }
 
-export async function ensureApiKey(): Promise<void> {
+export async function ensureApiKey(providerOverride?: AIProvider): Promise<void> {
   const config = loadConfig();
-  const provider = config.provider;
+  const provider = providerOverride || config.provider;
   const envVarName = provider === "gemini" ? "GEMINI_API_KEY" : "OPENAI_API_KEY";
 
   if (process.env[envVarName]) return;
@@ -107,18 +133,12 @@ export async function ensureApiKey(): Promise<void> {
   console.log(`\nNo ${providerLabel} API key found.`);
   console.log(`Get one at: ${keyUrl}\n`);
 
-  const { apiKey } = await inquirer.prompt([
-    {
-      type: "password",
-      name: "apiKey",
-      message: `Enter your ${providerLabel} API key:`,
-      mask: "*",
-      validate: (input: string) => {
-        if (input.trim().length === 0) return "API key cannot be empty";
-        return true;
-      },
-    },
-  ]);
+  const apiKey = await password({
+    message: `Enter your ${providerLabel} API key:`,
+    mask: "*",
+    validate: (value: string) =>
+      value.trim().length > 0 || "API key cannot be empty",
+  });
 
   saveApiKeyToEnv(provider, apiKey.trim());
   console.log(`\nAPI key saved to ${getEnvFilePath()}\n`);

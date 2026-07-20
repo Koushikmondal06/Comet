@@ -1,10 +1,8 @@
 import chalk from "chalk";
 import { getHistory, clearHistory, searchHistory } from "../../storage/history";
-import { showBanner } from "../ui/banner";
 import { logger } from "../../utils/logger";
 import { printTable } from "../ui/table";
 import { EMOJIS } from "../../constants/emojis";
-import inquirer from "inquirer";
 
 export interface HistoryCommandOptions {
   search?: string;
@@ -14,8 +12,6 @@ export interface HistoryCommandOptions {
 export async function historyCommand(
   options: HistoryCommandOptions
 ): Promise<void> {
-  showBanner();
-
   if (options.clear) {
     clearHistory();
     logger.success("History cleared.");

@@ -1,22 +1,24 @@
 import chalk from "chalk";
 import { execFileSync } from "child_process";
-import inquirer from "inquirer";
+import { select, input } from "@inquirer/prompts";
 import { getStagedDiff, getStagedFiles } from "../../git/diff";
 import { getCurrentBranch, getRecentCommits, getRepoName } from "../../git/branch";
 import { hasStagedChanges, stageAllFiles } from "../../git/status";
 import { createCommit, pushCommits } from "../../git/commit";
-import { generateCommitSuggestions } from "../../ai/provider";
+import { generateCommitSuggestions, resolveProviderOption } from "../../ai/provider";
 import { parseCommitSuggestions } from "../../ai/parser";
+import { truncateMessage } from "../../utils/validator";
 import { selectCommit } from "../prompts/selectCommit";
 import { confirmAction } from "../prompts/confirm";
 import { withSpinner } from "../ui/spinner";
 import { logger } from "../../utils/logger";
 import { addToHistory } from "../../storage/history";
-import { formatDate } from "../../utils/helpers";
+import { formatDate, isPromptCancel } from "../../utils/helpers";
 import { loadConfig } from "../../config/config";
 import { ensureApiKey } from "../../utils/env";
 import { CommitSuggestion, AIContext } from "../../types/commit";
 import { EMOJIS } from "../../constants/emojis";
+import { getModelsForProvider } from "../../constants/models";
 
 export interface CommitCommandOptions {
   push?: boolean;
@@ -24,6 +26,7 @@ export interface CommitCommandOptions {
   provider?: string;
   model?: string;
   chooseModel?: boolean;
+  style?: string;
   count?: string;
   message?: string;
   yes?: boolean;
@@ -33,7 +36,14 @@ export interface CommitCommandOptions {
 export async function commitCommand(options: CommitCommandOptions): Promise<void> {
   try {
     const config = loadConfig();
-    const count = parseInt(options.count || "3", 10);
+    const provider = resolveProviderOption(options.provider);
+
+    const parsedCount = parseInt(options.count || "3", 10);
+    if (options.count && (Number.isNaN(parsedCount) || parsedCount < 1)) {
+      logger.warn(`Invalid count '${options.count}', using 3.`);
+    }
+    const count =
+      Number.isNaN(parsedCount) || parsedCount < 1 ? 3 : Math.min(parsedCount, 10);
 
     if (!hasStagedChanges()) {
       const shouldStage = await confirmAction(
@@ -64,52 +74,35 @@ export async function commitCommand(options: CommitCommandOptions): Promise<void
       };
     });
 
-    await ensureApiKey();
+    await ensureApiKey(provider);
 
     let chosenModel = options.model;
+    const effectiveProvider = provider || config.provider;
 
     if (options.chooseModel && !chosenModel) {
-      const geminiModels = [
-        { name: "Gemini 2.5 Flash (fast, free tier)", value: "gemini-2.5-flash" },
-        { name: "Gemini 2.0 Flash (free tier)", value: "gemini-2.0-flash" },
-        { name: "Gemini 2.0 Flash-Lite (free tier)", value: "gemini-2.0-flash-lite" },
-        { name: "Gemini 2.5 Pro (paid only)", value: "gemini-2.5-pro" },
-      ];
-      const openaiModels = [
-        { name: "GPT-4o Mini (fast, cheap)", value: "gpt-4o-mini" },
-        { name: "GPT-4o (recommended)", value: "gpt-4o" },
-        { name: "GPT-4 Turbo", value: "gpt-4-turbo" },
-        { name: "GPT-3.5 Turbo (cheapest)", value: "gpt-3.5-turbo" },
-        { name: "o1 Mini (reasoning)", value: "o1-mini" },
-        { name: "o1 (reasoning)", value: "o1" },
-      ];
-      const models = config.provider === "gemini" ? geminiModels : openaiModels;
-      const result = await inquirer.prompt([
-        {
-          type: "list",
-          name: "model",
-          message: `Select ${config.provider} model:`,
-          choices: models,
-        },
-      ]);
-      chosenModel = result.model;
+      chosenModel = await select({
+        message: `Select ${effectiveProvider} model:`,
+        choices: getModelsForProvider(effectiveProvider),
+      });
     }
 
-    let commitMood = "";
-    if (options.chooseModel) {
-      const moodResult = await inquirer.prompt([
-        {
-          type: "input",
-          name: "mood",
-          message: "Commit style (e.g. concise, detailed, casual, formal):",
-          default: "standard",
-        },
-      ]);
-      commitMood = moodResult.mood;
+    let commitMood = options.style || "";
+    if (options.chooseModel && !commitMood) {
+      commitMood = await input({
+        message: "Commit style (e.g. concise, detailed, casual, formal):",
+        default: "standard",
+      });
     }
 
     const rawResponse = await withSpinner("Contacting AI", async () => {
-      return generateCommitSuggestions(context, count, options.provider as any, chosenModel, commitMood);
+      return generateCommitSuggestions(context, {
+        count,
+        provider,
+        model: chosenModel,
+        mood: commitMood,
+        maxLength: config.maxLength,
+        language: config.language,
+      });
     });
 
     const suggestions = parseCommitSuggestions(rawResponse);
@@ -136,17 +129,16 @@ export async function commitCommand(options: CommitCommandOptions): Promise<void
       selected = await selectCommit(suggestions);
     }
 
-    // Apply emoji prefix if enabled in config
+    // Enforce max length before adding the emoji so the prefix isn't counted
+    if (config.maxLength && selected.message.length > config.maxLength) {
+      selected.message = truncateMessage(selected.message, config.maxLength);
+    }
+
     if (config.emoji) {
       const emoji = EMOJIS[selected.type as keyof typeof EMOJIS];
       if (emoji && !selected.message.startsWith(emoji)) {
         selected.message = `${emoji} ${selected.message}`;
       }
-    }
-
-    // Enforce max length from config
-    if (config.maxLength && selected.message.length > config.maxLength) {
-      selected.message = selected.message.substring(0, config.maxLength);
     }
 
     if (options.dryRun) {
@@ -209,6 +201,10 @@ export async function commitCommand(options: CommitCommandOptions): Promise<void
       }
     }
   } catch (error) {
+    if (isPromptCancel(error)) {
+      logger.warn("Cancelled.");
+      return;
+    }
     logger.error(
       `Error: ${error instanceof Error ? error.message : "Unknown error"}`
     );

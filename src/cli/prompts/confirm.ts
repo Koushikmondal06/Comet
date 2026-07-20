@@ -1,15 +1,7 @@
-import inquirer from "inquirer";
+import { confirm } from "@inquirer/prompts";
 
 export async function confirmAction(
   message: string
 ): Promise<boolean> {
-  const { confirmed } = await inquirer.prompt([
-    {
-      type: "confirm",
-      name: "confirmed",
-      message,
-      default: true,
-    },
-  ]);
-  return confirmed;
+  return confirm({ message, default: true });
 }

@@ -1,34 +1,27 @@
-import inquirer from "inquirer";
-import chalk from "chalk";
-import { loadConfig, saveConfig, resetConfig, updateConfig } from "../../config/config";
-import { showBanner } from "../ui/banner";
+import { select, password } from "@inquirer/prompts";
+import { loadConfig, resetConfig, updateConfig } from "../../config/config";
 import { logger } from "../../utils/logger";
 import { printTable } from "../ui/table";
 import { AIProvider } from "../../types/config";
 import { saveApiKeyToEnv } from "../../utils/env";
+import { getModelsForProvider } from "../../constants/models";
 
 export async function configCommand(): Promise<void> {
-  showBanner();
-
   const config = loadConfig();
 
-  const { action } = await inquirer.prompt([
-    {
-      type: "list",
-      name: "action",
-      message: "What would you like to do?",
-      choices: [
-        { name: "View current config", value: "view" },
-        { name: "Set API key", value: "apikey" },
-        { name: "Set provider (gemini/openai)", value: "provider" },
-        { name: "Set AI model", value: "model" },
-        { name: "Toggle emoji prefix", value: "emoji" },
-        { name: "Toggle auto-commit", value: "autoCommit" },
-        { name: "Set theme (dark/light)", value: "theme" },
-        { name: "Reset to defaults", value: "reset" },
-      ],
-    },
-  ]);
+  const action = await select({
+    message: "What would you like to do?",
+    choices: [
+      { name: "View current config", value: "view" },
+      { name: "Set API key", value: "apikey" },
+      { name: "Set provider (gemini/openai)", value: "provider" },
+      { name: "Set AI model", value: "model" },
+      { name: "Toggle emoji prefix", value: "emoji" },
+      { name: "Toggle auto-commit", value: "autoCommit" },
+      { name: "Set theme (dark/light)", value: "theme" },
+      { name: "Reset to defaults", value: "reset" },
+    ],
+  });
 
   switch (action) {
     case "view": {
@@ -60,78 +53,47 @@ export async function configCommand(): Promise<void> {
     }
 
     case "apikey": {
-      const { provider } = await inquirer.prompt([
-        {
-          type: "list",
-          name: "provider",
-          message: "Which provider's key do you want to set?",
-          choices: [
-            { name: "Gemini", value: "gemini" },
-            { name: "OpenAI", value: "openai" },
-          ],
-        },
-      ]);
+      const provider = await select<AIProvider>({
+        message: "Which provider's key do you want to set?",
+        choices: [
+          { name: "Gemini", value: "gemini" },
+          { name: "OpenAI", value: "openai" },
+        ],
+      });
       const keyUrl =
         provider === "gemini"
           ? "https://aistudio.google.com/apikey"
           : "https://platform.openai.com/api-keys";
       logger.info(`Get your key at: ${keyUrl}`);
-      const { apiKey } = await inquirer.prompt([
-        {
-          type: "password",
-          name: "apiKey",
-          message: `Enter your ${provider} API key:`,
-          mask: "*",
-          validate: (input: string) =>
-            input.trim().length > 0 || "API key cannot be empty",
-        },
-      ]);
-      saveApiKeyToEnv(provider as AIProvider, apiKey.trim());
+      const apiKey = await password({
+        message: `Enter your ${provider} API key:`,
+        mask: "*",
+        validate: (value: string) =>
+          value.trim().length > 0 || "API key cannot be empty",
+      });
+      saveApiKeyToEnv(provider, apiKey.trim());
       logger.success(`${provider} API key saved!`);
       break;
     }
 
     case "provider": {
-      const { provider } = await inquirer.prompt([
-        {
-          type: "list",
-          name: "provider",
-          message: "Select AI provider:",
-          choices: [
-            { name: "Gemini", value: "gemini" },
-            { name: "OpenAI", value: "openai" },
-          ],
-        },
-      ]);
-      updateConfig({ provider: provider as AIProvider });
+      const provider = await select<AIProvider>({
+        message: "Select AI provider:",
+        choices: [
+          { name: "Gemini", value: "gemini" },
+          { name: "OpenAI", value: "openai" },
+        ],
+      });
+      updateConfig({ provider });
       logger.success(`Provider set to ${provider}`);
       break;
     }
 
     case "model": {
-      const geminiModels = [
-        { name: "Gemini 2.5 Flash (fast, free tier)", value: "gemini-2.5-flash" },
-        { name: "Gemini 2.0 Flash (free tier)", value: "gemini-2.0-flash" },
-        { name: "Gemini 2.0 Flash-Lite (free tier)", value: "gemini-2.0-flash-lite" },
-        { name: "Gemini 2.5 Pro (paid only)", value: "gemini-2.5-pro" },
-      ];
-      const openaiModels = [
-        { name: "GPT-4o Mini (fast, cheap)", value: "gpt-4o-mini" },
-        { name: "GPT-4o (recommended)", value: "gpt-4o" },
-        { name: "GPT-4 Turbo", value: "gpt-4-turbo" },
-        { name: "GPT-3.5 Turbo (cheapest)", value: "gpt-3.5-turbo" },
-        { name: "o1 Mini (reasoning)", value: "o1-mini" },
-        { name: "o1 (reasoning)", value: "o1" },
-      ];
-      const models = config.provider === "gemini" ? geminiModels : openaiModels;
-      const { model } = await inquirer.prompt([
-        {
-          type: "list",
-          name: "model",
-          message: `Select ${config.provider} model:`,
-          choices: models,
-        },
-      ]);
+      const model = await select({
+        message: `Select ${config.provider} model:`,
+        choices: getModelsForProvider(config.provider),
+      });
       updateConfig({ model });
       logger.success(`Model set to ${model}`);
       break;
@@ -150,17 +112,13 @@ export async function configCommand(): Promise<void> {
     }
 
     case "theme": {
-      const { theme } = await inquirer.prompt([
-        {
-          type: "list",
-          name: "theme",
-          message: "Select theme:",
-          choices: [
-            { name: "Dark", value: "dark" },
-            { name: "Light", value: "light" },
-          ],
-        },
-      ]);
+      const theme = await select<"dark" | "light">({
+        message: "Select theme:",
+        choices: [
+          { name: "Dark", value: "dark" },
+          { name: "Light", value: "light" },
+        ],
+      });
       updateConfig({ theme });
       logger.success(`Theme set to ${theme}`);
       break;

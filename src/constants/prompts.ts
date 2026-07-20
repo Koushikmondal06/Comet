@@ -17,11 +17,12 @@ export const PROMPTS = {
 
 ## Rules
 1. Use Conventional Commits format: type(scope): description
-2. Maximum 60 characters for the subject line
+2. Maximum {max_length} characters for the subject line
 3. Use imperative mood (add, fix, remove, not added, fixed, removed)
 4. If the project uses emojis, include the appropriate emoji prefix
 5. Be specific and descriptive
 6. Focus on the "what" and "why", not the "how"
+7. Write the messages in this language: {language}
 
 ## Writing Style
 Write commit messages in this style: {mood}
@@ -105,13 +106,18 @@ Return a JSON object:
 \`\`\`
 
 ## Output Format
-Return a JSON array of refactoring suggestions:
-[
-  {
-    "file": "path/to/file",
-    "currentIssue": "What's wrong with the current code",
-    "suggestion": "How to improve it",
-    "priority": "high|medium|low"
-  }
-]`,
+Return a JSON object:
+{
+  "summary": "Brief summary of the overall code quality",
+  "suggestions": [
+    {
+      "file": "path/to/file",
+      "issue": "What's wrong with the current code",
+      "suggestion": "How to improve it",
+      "priority": "high|medium|low"
+    }
+  ]
+}
+
+Return ONLY the JSON object, no additional text.`,
 } as const;

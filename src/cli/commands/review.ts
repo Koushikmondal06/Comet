@@ -1,23 +1,26 @@
-import { Command } from "commander";
 import chalk from "chalk";
 import { getStagedDiff, getStagedFiles } from "../../git/diff";
 import { hasStagedChanges, stageAllFiles } from "../../git/status";
-import { generateAIResponse } from "../../ai/provider";
+import { generateAIResponse, resolveProviderOption } from "../../ai/provider";
 import { buildReviewPrompt } from "../../ai/prompts";
 import { parseReviewResponse } from "../../ai/parser";
 import { withSpinner } from "../ui/spinner";
-import { showBanner } from "../ui/banner";
 import { logger } from "../../utils/logger";
+import { isPromptCancel } from "../../utils/helpers";
 import { confirmAction } from "../prompts/confirm";
 import { printTable } from "../ui/table";
 import { ensureApiKey } from "../../utils/env";
 import { AIContext } from "../../types/commit";
 import { getCurrentBranch, getRepoName } from "../../git/branch";
 
-export async function reviewCommand(): Promise<void> {
-  showBanner();
+export interface AIOptions {
+  provider?: string;
+  model?: string;
+}
 
+export async function reviewCommand(options: AIOptions = {}): Promise<void> {
   try {
+    const provider = resolveProviderOption(options.provider);
     if (!hasStagedChanges()) {
       const shouldStage = await confirmAction(
         "No staged changes found. Stage all changes?"
@@ -48,10 +51,10 @@ export async function reviewCommand(): Promise<void> {
 
     const prompt = buildReviewPrompt(context);
 
-    await ensureApiKey();
+    await ensureApiKey(provider);
 
     const response = await withSpinner("AI is reviewing code", async () => {
-      return generateAIResponse(prompt);
+      return generateAIResponse(prompt, provider, options.model);
     });
 
     const review = parseReviewResponse(response.content) as {
@@ -97,6 +100,10 @@ export async function reviewCommand(): Promise<void> {
       logger.success("No issues found!");
     }
   } catch (error) {
+    if (isPromptCancel(error)) {
+      logger.warn("Cancelled.");
+      return;
+    }
     logger.error(
       `Error: ${error instanceof Error ? error.message : "Unknown error"}`
     );

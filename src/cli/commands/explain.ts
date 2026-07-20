@@ -1,22 +1,22 @@
 import chalk from "chalk";
 import { getStagedDiff, getStagedFiles } from "../../git/diff";
 import { hasStagedChanges, stageAllFiles } from "../../git/status";
-import { generateAIResponse } from "../../ai/provider";
+import { generateAIResponse, resolveProviderOption } from "../../ai/provider";
 import { buildExplainPrompt } from "../../ai/prompts";
 import { parseExplainResponse } from "../../ai/parser";
 import { withSpinner } from "../ui/spinner";
-import { showBanner } from "../ui/banner";
 import { logger } from "../../utils/logger";
+import { isPromptCancel } from "../../utils/helpers";
 import { confirmAction } from "../prompts/confirm";
 import { AIContext } from "../../types/commit";
 import { getCurrentBranch, getRepoName } from "../../git/branch";
 import { ensureApiKey } from "../../utils/env";
 import { EMOJIS } from "../../constants/emojis";
+import { AIOptions } from "./review";
 
-export async function explainCommand(): Promise<void> {
-  showBanner();
-
+export async function explainCommand(options: AIOptions = {}): Promise<void> {
   try {
+    const provider = resolveProviderOption(options.provider);
     if (!hasStagedChanges()) {
       const shouldStage = await confirmAction(
         "No staged changes found. Stage all changes?"
@@ -47,10 +47,10 @@ export async function explainCommand(): Promise<void> {
 
     const prompt = buildExplainPrompt(context);
 
-    await ensureApiKey();
+    await ensureApiKey(provider);
 
     const response = await withSpinner("AI is analyzing changes", async () => {
-      return generateAIResponse(prompt);
+      return generateAIResponse(prompt, provider, options.model);
     });
 
     const explanation = parseExplainResponse(response.content) as {
@@ -93,6 +93,10 @@ export async function explainCommand(): Promise<void> {
       logger.info(explanation.impact);
     }
   } catch (error) {
+    if (isPromptCancel(error)) {
+      logger.warn("Cancelled.");
+      return;
+    }
     logger.error(
       `Error: ${error instanceof Error ? error.message : "Unknown error"}`
     );

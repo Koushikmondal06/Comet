@@ -1,4 +1,3 @@
-import fetch from "node-fetch";
 import { getApiKeyForProvider } from "../utils/env";
 import { AIResponse } from "./provider";
 
@@ -37,7 +36,7 @@ export async function generateWithGemini(
               maxOutputTokens: 8192,
             },
           }),
-          signal: controller.signal as any,
+          signal: controller.signal,
         });
 
         clearTimeout(timeout);

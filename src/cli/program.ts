@@ -1,13 +1,25 @@
 import { Command } from "commander";
 import chalk from "chalk";
+import * as fs from "fs";
+import * as path from "path";
 import { commitCommand } from "./commands/commit";
-import { reviewCommand } from "./commands/review";
+import { reviewCommand, AIOptions } from "./commands/review";
 import { explainCommand } from "./commands/explain";
 import { configCommand } from "./commands/config";
 import { historyCommand, HistoryCommandOptions } from "./commands/history";
 import { refactorCommand } from "./commands/refactor";
 import { showBanner } from "./ui/banner";
-import { EMOJIS } from "../constants/emojis";
+
+function getVersion(): string {
+  try {
+    const pkg = JSON.parse(
+      fs.readFileSync(path.join(__dirname, "..", "..", "package.json"), "utf-8")
+    );
+    return pkg.version || "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+}
 
 function showHelp(): void {
   showBanner();
@@ -37,10 +49,11 @@ function showHelp(): void {
     ["-p, --push", "Push after commit"],
     ["-d, --dry-run", "Show suggestions without committing"],
     ["-m, --message <msg>", "Skip selection, use this message"],
-    ["-n, --count <n>", "Number of suggestions (default: 3)"],
+    ["-n, --count <n>", "Number of suggestions (default: 3, max: 10)"],
     ["-y, --yes", "Auto-confirm (skip prompts)"],
     ["-q, --quiet", "Suppress non-essential output"],
     ["--choose-model", "Choose AI model before generating"],
+    ["--style <style>", "Commit message style (concise, detailed, casual...)"],
     ["--provider <name>", "AI provider (gemini/openai)"],
     ["--model <name>", "Specific AI model to use"],
     ["--no-banner", "Suppress the ASCII banner"],
@@ -66,7 +79,7 @@ const program = new Command();
 
 program
   .name("comet")
-  .version("1.1.0", "-v, --version")
+  .version(getVersion(), "-v, --version")
   .description("AI-powered commit message generator")
   .option("--no-banner", "Suppress the ASCII banner")
   .helpOption(false);
@@ -80,6 +93,7 @@ program
 program
   .command("commit", { isDefault: true })
   .description("Generate and create an AI-powered commit")
+  .argument("[args...]")
   .option("-p, --push", "Push after commit")
   .option("-d, --dry-run", "Show suggestions without committing")
   .option("-m, --message <message>", "Skip selection, use this message")
@@ -87,9 +101,16 @@ program
   .option("--model <model>", "AI model to use")
   .option("-n, --count <count>", "Number of suggestions", "3")
   .option("--choose-model", "Choose AI model before generating")
+  .option("--style <style>", "Commit message style (e.g. concise, detailed, casual)")
   .option("-y, --yes", "Auto-confirm (skip confirmation prompts)")
   .option("-q, --quiet", "Suppress non-essential output")
-  .action(async (options) => {
+  .action(async (args: string[], options) => {
+    // Unrecognized subcommands land here because commit is the default command
+    if (args.length > 0) {
+      console.error(chalk.red(`Unknown command: ${args[0]}\n`));
+      showHelp();
+      process.exit(1);
+    }
     if (program.opts().banner !== false) showBanner();
     await commitCommand(options);
   });
@@ -97,17 +118,21 @@ program
 program
   .command("review")
   .description("AI-powered code review of staged changes")
-  .action(async () => {
+  .option("--provider <provider>", "AI provider (gemini/openai)")
+  .option("--model <model>", "AI model to use")
+  .action(async (options: AIOptions) => {
     if (program.opts().banner !== false) showBanner();
-    await reviewCommand();
+    await reviewCommand(options);
   });
 
 program
   .command("explain")
   .description("Explain staged changes in plain English")
-  .action(async () => {
+  .option("--provider <provider>", "AI provider (gemini/openai)")
+  .option("--model <model>", "AI model to use")
+  .action(async (options: AIOptions) => {
     if (program.opts().banner !== false) showBanner();
-    await explainCommand();
+    await explainCommand(options);
   });
 
 program
@@ -131,9 +156,11 @@ program
 program
   .command("refactor")
   .description("AI-powered refactoring suggestions for staged changes")
-  .action(async () => {
+  .option("--provider <provider>", "AI provider (gemini/openai)")
+  .option("--model <model>", "AI model to use")
+  .action(async (options: AIOptions) => {
     if (program.opts().banner !== false) showBanner();
-    await refactorCommand();
+    await refactorCommand(options);
   });
 
 program
@@ -143,8 +170,10 @@ program
     showHelp();
   });
 
-program.on("command:*", () => {
+program.on("command:*", (operands) => {
+  console.error(chalk.red(`Unknown command: ${operands[0]}\n`));
   showHelp();
+  process.exit(1);
 });
 
 export { program };

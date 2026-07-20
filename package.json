@@ -1,10 +1,23 @@
 {
   "name": "@koushikmondal06/comet",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "AI-powered commit message generator CLI",
   "main": "dist/index.js",
   "bin": {
     "comet": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Koushikmondal06/Comet.git"
+  },
+  "homepage": "https://github.com/Koushikmondal06/Comet#readme",
+  "bugs": {
+    "url": "https://github.com/Koushikmondal06/Comet/issues"
   },
   "scripts": {
     "build": "tsc",
@@ -25,28 +38,21 @@
     "openai",
     "commit-message"
   ],
-  "author": "",
+  "author": "Koushik Mondal",
   "license": "MIT",
   "dependencies": {
+    "@inquirer/prompts": "^5.5.0",
     "chalk": "^4.1.2",
     "cli-table3": "^0.6.5",
-    "commander": "^12.1.0",
-    "dotenv": "^16.4.7",
-    "figlet": "^1.8.0",
-    "inquirer": "^8.2.6",
-    "node-fetch": "^2.7.0",
-    "ora": "^5.4.1"
+    "commander": "^12.1.0"
   },
   "devDependencies": {
-    "@types/figlet": "^1.7.0",
-    "@types/inquirer": "^8.2.10",
     "@types/node": "^20.14.0",
-    "@types/node-fetch": "^2.6.11",
     "ts-node": "^10.9.2",
     "typescript": "^5.5.0",
     "vitest": "^2.0.0"
   },
   "engines": {
-    "node": ">=16.0.0"
+    "node": ">=18.0.0"
   }
 }

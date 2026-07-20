@@ -1,4 +1,4 @@
-import inquirer from "inquirer";
+import { select, input } from "@inquirer/prompts";
 import { CommitSuggestion } from "../../types/commit";
 import { EMOJIS } from "../../constants/emojis";
 import chalk from "chalk";
@@ -26,30 +26,21 @@ export async function selectCommit(
     short: "Custom",
   });
 
-  const { selected } = await inquirer.prompt([
-    {
-      type: "list",
-      name: "selected",
-      message: "Select a commit message:",
-      choices,
-      pageSize: 10,
-    },
-  ]);
+  const selected = await select<CommitSuggestion>({
+    message: "Select a commit message:",
+    choices,
+    pageSize: 10,
+  });
 
   if (!selected.message) {
-    const { customMessage } = await inquirer.prompt([
-      {
-        type: "input",
-        name: "customMessage",
-        message: "Enter your commit message:",
-        validate: (input: string) => {
-          if (input.trim().length === 0) return "Message cannot be empty";
-          if (input.length > 100) return "Message too long (max 100 chars)";
-          return true;
-        },
+    selected.message = await input({
+      message: "Enter your commit message:",
+      validate: (value: string) => {
+        if (value.trim().length === 0) return "Message cannot be empty";
+        if (value.length > 100) return "Message too long (max 100 chars)";
+        return true;
       },
-    ]);
-    selected.message = customMessage;
+    });
   }
 
   return selected;

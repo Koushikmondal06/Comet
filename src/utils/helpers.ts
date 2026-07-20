@@ -2,6 +2,11 @@ export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// Thrown by @inquirer/prompts when the user cancels with Ctrl+C
+export function isPromptCancel(error: unknown): boolean {
+  return error instanceof Error && error.name === "ExitPromptError";
+}
+
 export function formatDate(date: Date): string {
   return date.toISOString().split("T")[0];
 }

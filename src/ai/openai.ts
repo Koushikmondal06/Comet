@@ -1,10 +1,38 @@
-import fetch from "node-fetch";
 import { getApiKeyForProvider } from "../utils/env";
 import { AIResponse } from "./provider";
 
 const MAX_RETRIES = 3;
 const TIMEOUT_MS = 30000;
 const RETRYABLE_STATUSES = [429, 500, 502, 503, 504];
+
+const SYSTEM_PROMPT =
+  "You are an expert git commit message generator. Always respond with valid JSON.";
+
+// o1/o3-style reasoning models reject system messages, custom temperature,
+// and max_tokens (they require max_completion_tokens)
+function isReasoningModel(model: string): boolean {
+  return /^o\d/.test(model);
+}
+
+function buildRequestBody(model: string, prompt: string): Record<string, unknown> {
+  if (isReasoningModel(model)) {
+    return {
+      model,
+      messages: [{ role: "user", content: `${SYSTEM_PROMPT}\n\n${prompt}` }],
+      max_completion_tokens: 8192,
+    };
+  }
+
+  return {
+    model,
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: prompt },
+    ],
+    temperature: 0.7,
+    max_tokens: 8192,
+  };
+}
 
 export async function generateWithOpenAI(
   prompt: string,
@@ -26,20 +54,8 @@ export async function generateWithOpenAI(
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
         },
-        body: JSON.stringify({
-          model: actualModel,
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are an expert git commit message generator. Always respond with valid JSON.",
-            },
-            { role: "user", content: prompt },
-          ],
-          temperature: 0.7,
-          max_tokens: 8192,
-        }),
-        signal: controller.signal as any,
+        body: JSON.stringify(buildRequestBody(actualModel, prompt)),
+        signal: controller.signal,
       });
 
       clearTimeout(timeout);

@@ -6,6 +6,7 @@ export function getChangedFiles(): ChangedFile[] {
   try {
     const output = execFileSync("git", ["diff", "--name-status", "HEAD~1"], {
       encoding: "utf-8",
+      stdio: ["ignore", "pipe", "pipe"],
     }).trim();
 
     if (!output) return [];
@@ -27,6 +28,7 @@ export function getFileContent(filePath: string): string | null {
   try {
     return execFileSync("git", ["show", `HEAD:${filePath}`], {
       encoding: "utf-8",
+      stdio: ["ignore", "pipe", "pipe"],
     });
   } catch {
     return null;
@@ -37,6 +39,7 @@ export function getDiffForFile(filePath: string): string {
   try {
     return execFileSync("git", ["diff", "--cached", "--", filePath], {
       encoding: "utf-8",
+      stdio: ["ignore", "pipe", "pipe"],
     }).trim();
   } catch {
     return "";

@@ -7,7 +7,7 @@ export function getCommitHistory(count: number = 20): CommitHistoryEntry[] {
     const output = execFileSync(
       "git",
       ["log", "--oneline", `-${count}`, "--format=%H|%s|%ai"],
-      { encoding: "utf-8" }
+      { encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] }
     ).trim();
 
     if (!output) return [];

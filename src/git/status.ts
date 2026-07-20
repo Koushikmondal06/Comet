@@ -2,7 +2,6 @@ import { execFileSync } from "child_process";
 import { ChangedFile, FileStatus, GitStatus } from "../types/commit";
 import { FILE_STATUS_MAP } from "../constants/git";
 import { getCurrentBranch } from "./branch";
-import { stageAll } from "./commit";
 
 function parseStatusOutput(output: string): ChangedFile[] {
   if (!output.trim()) return [];
@@ -30,6 +29,7 @@ function parseStagedStatus(): ChangedFile[] {
   try {
     const output = execFileSync("git", ["diff", "--cached", "--name-status"], {
       encoding: "utf-8",
+      stdio: ["ignore", "pipe", "pipe"],
     });
     return parseStatusOutput(output);
   } catch {
@@ -41,6 +41,7 @@ function parseModifiedStatus(): ChangedFile[] {
   try {
     const output = execFileSync("git", ["diff", "--name-status"], {
       encoding: "utf-8",
+      stdio: ["ignore", "pipe", "pipe"],
     });
     return parseStatusOutput(output);
   } catch {
@@ -52,6 +53,7 @@ function parseUntrackedFiles(): string[] {
   try {
     const output = execFileSync("git", ["ls-files", "--others", "--exclude-standard"], {
       encoding: "utf-8",
+      stdio: ["ignore", "pipe", "pipe"],
     });
     return output
       .split("\n")
@@ -65,6 +67,7 @@ export function hasStagedChanges(): boolean {
   try {
     const output = execFileSync("git", ["diff", "--cached", "--name-only"], {
       encoding: "utf-8",
+      stdio: ["ignore", "pipe", "pipe"],
     }).trim();
     return output.length > 0;
   } catch {
@@ -73,7 +76,9 @@ export function hasStagedChanges(): boolean {
 }
 
 export function stageAllFiles(): void {
-  if (!stageAll()) {
+  try {
+    execFileSync("git", ["add", "."], { encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] });
+  } catch {
     throw new Error("Failed to stage files");
   }
 }

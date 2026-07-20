@@ -45,20 +45,3 @@ export function pushCommits(): boolean {
   }
 }
 
-export function stageFile(filePath: string): boolean {
-  try {
-    execFileSync("git", ["add", filePath], { encoding: "utf-8" });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-export function stageAll(): boolean {
-  try {
-    execFileSync("git", ["add", "."], { encoding: "utf-8" });
-    return true;
-  } catch {
-    return false;
-  }
-}
