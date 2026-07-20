@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.3 (2026-07-21)
+
+### Fixes
+- Disable emoji prefix in commit suggestions by default
+
 ## 1.2.2 (2026-07-21)
 
 ### Features
