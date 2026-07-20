@@ -126,7 +126,7 @@ export async function commitCommand(options: CommitCommandOptions): Promise<void
         logger.bold("Suggested Commits:");
         logger.blank();
       }
-      selected = await selectCommit(suggestions);
+      selected = await selectCommit(suggestions, config);
     }
 
     // Enforce max length before adding the emoji so the prefix isn't counted

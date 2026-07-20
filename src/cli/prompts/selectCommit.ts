@@ -1,13 +1,16 @@
 import { select, input } from "@inquirer/prompts";
 import { CommitSuggestion } from "../../types/commit";
 import { EMOJIS } from "../../constants/emojis";
+import { Config } from "../../types/config";
 import chalk from "chalk";
 
 export async function selectCommit(
-  suggestions: CommitSuggestion[]
+  suggestions: CommitSuggestion[],
+  config?: Config
 ): Promise<CommitSuggestion> {
+  const showEmoji = config?.emoji ?? false;
   const choices = suggestions.map((s, index) => ({
-    name: `${chalk.bold(`${index + 1}.`)} ${EMOJIS[s.type] || ""} ${chalk.white(
+    name: `${chalk.bold(`${index + 1}.`)} ${showEmoji ? (EMOJIS[s.type] || "") + " " : ""}${chalk.white(
       s.message
     )}${chalk.gray(`\n     ${s.description}`)}`,
     value: s,
