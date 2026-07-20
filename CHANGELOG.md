@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.4 (2026-07-21)
+
+### Fixes
+- Hide emojis in commit selection UI when emoji config is disabled
+
 ## 1.2.3 (2026-07-21)
 
 ### Fixes
