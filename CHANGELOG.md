@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.1 (2026-07-21)
+
+### Features
+- `comet config --api-key [provider]` (`-k`) to set or change an API key directly, without going through the config menu
+
 ## 1.2.0 (2026-07-20)
 
 ### Features
