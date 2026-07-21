@@ -1,4 +1,7 @@
 import { getApiKeyForProvider } from "../utils/env";
+import { loadConfig } from "../config/config";
+import { PROVIDERS } from "../constants/providers";
+import { AIProvider } from "../types/config";
 import { AIResponse } from "./provider";
 
 const MAX_RETRIES = 3;
@@ -14,8 +17,8 @@ function isReasoningModel(model: string): boolean {
   return /^o\d/.test(model);
 }
 
-function buildRequestBody(model: string, prompt: string): Record<string, unknown> {
-  if (isReasoningModel(model)) {
+function buildRequestBody(model: string, prompt: string, provider: AIProvider): Record<string, unknown> {
+  if (provider === "openai" && isReasoningModel(model)) {
     return {
       model,
       messages: [{ role: "user", content: `${SYSTEM_PROMPT}\n\n${prompt}` }],
@@ -34,14 +37,42 @@ function buildRequestBody(model: string, prompt: string): Record<string, unknown
   };
 }
 
+export function resolveBaseUrl(provider: AIProvider): string {
+  const registered = PROVIDERS[provider].baseUrl;
+  if (registered) return registered;
+
+  const baseUrl =
+    process.env.CUSTOM_BASE_URL || loadConfig().customBaseUrl;
+  if (!baseUrl) {
+    throw new Error(
+      "No base URL set for the custom provider. Run 'comet config' to set it (or export CUSTOM_BASE_URL)."
+    );
+  }
+  return baseUrl;
+}
+
+// Serves openai, openrouter, nim, and custom — all OpenAI-compatible
+// /chat/completions endpoints; only base URL and API key differ.
 export async function generateWithOpenAI(
   prompt: string,
-  model?: string
+  model?: string,
+  provider: AIProvider = "openai"
 ): Promise<AIResponse> {
-  const apiKey = getApiKeyForProvider("openai");
-  const actualModel = model || process.env.OPENAI_MODEL || "gpt-4o";
+  const info = PROVIDERS[provider];
+  const apiKey = getApiKeyForProvider(provider);
+  const actualModel =
+    model ||
+    (provider === "openai" ? process.env.OPENAI_MODEL : undefined) ||
+    info.defaultModel ||
+    loadConfig().model;
 
-  const url = "https://api.openai.com/v1/chat/completions";
+  if (!actualModel) {
+    throw new Error(
+      `No model configured for ${info.label}. Run 'comet config' to set one.`
+    );
+  }
+
+  const url = `${resolveBaseUrl(provider).replace(/\/+$/, "")}/chat/completions`;
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     const controller = new AbortController();
@@ -54,7 +85,7 @@ export async function generateWithOpenAI(
           "Content-Type": "application/json",
           Authorization: `Bearer ${apiKey}`,
         },
-        body: JSON.stringify(buildRequestBody(actualModel, prompt)),
+        body: JSON.stringify(buildRequestBody(actualModel, prompt, provider)),
         signal: controller.signal,
       });
 
@@ -67,7 +98,7 @@ export async function generateWithOpenAI(
 
         const text = data.choices?.[0]?.message?.content;
         if (!text) {
-          throw new Error("No content received from OpenAI API");
+          throw new Error(`No content received from ${info.label} API`);
         }
 
         return { content: text };
@@ -84,12 +115,12 @@ export async function generateWithOpenAI(
       }
 
       const error = await response.text();
-      throw new Error(`OpenAI API error: ${response.status} - ${error}`);
+      throw new Error(`${info.label} API error: ${response.status} - ${error}`);
     } catch (err: any) {
       clearTimeout(timeout);
 
       if (err.name === "AbortError") {
-        throw new Error("OpenAI API request timed out after 30s");
+        throw new Error(`${info.label} API request timed out after 30s`);
       }
 
       if (attempt === MAX_RETRIES - 1) {
@@ -102,5 +133,5 @@ export async function generateWithOpenAI(
     }
   }
 
-  throw new Error("OpenAI API request failed after all retries");
+  throw new Error(`${info.label} API request failed after all retries`);
 }
