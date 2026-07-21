@@ -1,8 +1,10 @@
 import * as path from "path";
 import * as fs from "fs";
-import { password } from "@inquirer/prompts";
+import { execFileSync } from "child_process";
+import { password, confirm } from "@inquirer/prompts";
 import { AIProvider } from "../types/config";
-import { loadConfig } from "../config/config";
+import { loadConfig, updateConfig } from "../config/config";
+import { PROVIDERS, isProvider } from "../constants/providers";
 import { getConfigDir } from "./files";
 
 // Minimal .env parser (KEY=value lines); replaces the dotenv dependency.
@@ -70,10 +72,21 @@ export function getOpenAIApiKey(): string | undefined {
 
 export function getProviderFromEnv(): AIProvider | undefined {
   const provider = getEnvVar("AI_PROVIDER");
-  if (provider === "gemini" || provider === "openai") {
+  if (provider && isProvider(provider)) {
     return provider;
   }
   return undefined;
+}
+
+// True when the Claude Code CLI is installed (and therefore already logged in
+// or able to prompt its own login) — lets the claude provider run key-less.
+export function hasClaudeCode(): boolean {
+  try {
+    execFileSync("claude", ["--version"], { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function saveApiKeyToEnv(provider: AIProvider, apiKey: string): void {
@@ -89,7 +102,7 @@ export function saveApiKeyToEnv(provider: AIProvider, apiKey: string): void {
     envContent = fs.readFileSync(envPath, "utf-8");
   }
 
-  const envVarName = provider === "gemini" ? "GEMINI_API_KEY" : "OPENAI_API_KEY";
+  const envVarName = PROVIDERS[provider].envVar;
   const regex = new RegExp(`^${envVarName}=.*$`, "m");
 
   if (regex.test(envContent)) {
@@ -104,7 +117,7 @@ export function saveApiKeyToEnv(provider: AIProvider, apiKey: string): void {
 }
 
 export function getApiKeyForProvider(provider: AIProvider): string {
-  const envVarName = provider === "gemini" ? "GEMINI_API_KEY" : "OPENAI_API_KEY";
+  const envVarName = PROVIDERS[provider].envVar;
   const key = process.env[envVarName];
   if (key) return key;
 
@@ -117,24 +130,39 @@ export function getApiKeyForProvider(provider: AIProvider): string {
 export async function ensureApiKey(providerOverride?: AIProvider): Promise<void> {
   const config = loadConfig();
   const provider = providerOverride || config.provider;
-  const envVarName = provider === "gemini" ? "GEMINI_API_KEY" : "OPENAI_API_KEY";
 
-  if (process.env[envVarName]) return;
+  // Claude via the local Claude Code CLI needs no key
+  if (provider === "claude" && config.claudeBackend === "claude-code") return;
+
+  const info = PROVIDERS[provider];
+
+  if (process.env[info.envVar]) return;
 
   loadLocalEnv();
-  if (process.env[envVarName]) return;
+  if (process.env[info.envVar]) return;
 
-  const providerLabel = provider === "gemini" ? "Gemini" : "OpenAI";
-  const keyUrl =
-    provider === "gemini"
-      ? "https://aistudio.google.com/apikey"
-      : "https://platform.openai.com/api-keys";
+  // No key yet — if Claude Code is installed, offer to use it instead
+  if (provider === "claude" && hasClaudeCode()) {
+    const useClaudeCode = await confirm({
+      message:
+        "Claude Code detected on this machine. Can I use your Claude Code? (uses its login, no API key needed)",
+      default: true,
+    });
+    if (useClaudeCode) {
+      updateConfig({ claudeBackend: "claude-code" });
+      return;
+    }
+    updateConfig({ claudeBackend: "api" });
+  }
 
-  console.log(`\nNo ${providerLabel} API key found.`);
-  console.log(`Get one at: ${keyUrl}\n`);
+  console.log(`\nNo ${info.label} API key found.`);
+  if (info.keyUrl) {
+    console.log(`Get one at: ${info.keyUrl}`);
+  }
+  console.log("");
 
   const apiKey = await password({
-    message: `Enter your ${providerLabel} API key:`,
+    message: `Enter your ${info.label} API key:`,
     mask: "*",
     validate: (value: string) =>
       value.trim().length > 0 || "API key cannot be empty",

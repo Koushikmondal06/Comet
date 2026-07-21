@@ -2,8 +2,10 @@ import { AIProvider } from "../types/config";
 import { AIContext } from "../types/commit";
 import { generateWithGemini } from "./gemini";
 import { generateWithOpenAI } from "./openai";
+import { generateWithClaude } from "./claude";
 import { buildCommitPrompt } from "./prompts";
 import { getEffectiveProvider } from "../config/config";
+import { isProvider, providerListText } from "../constants/providers";
 
 export interface AIResponse {
   content: string;
@@ -11,8 +13,10 @@ export interface AIResponse {
 
 export function resolveProviderOption(name?: string): AIProvider | undefined {
   if (!name) return undefined;
-  if (name !== "gemini" && name !== "openai") {
-    throw new Error(`Invalid provider '${name}'. Use 'gemini' or 'openai'.`);
+  if (!isProvider(name)) {
+    throw new Error(
+      `Invalid provider '${name}'. Use one of: ${providerListText()}.`
+    );
   }
   return name;
 }
@@ -27,8 +31,13 @@ export async function generateAIResponse(
   switch (effectiveProvider) {
     case "gemini":
       return generateWithGemini(prompt, model);
+    case "claude":
+      return generateWithClaude(prompt, model);
     case "openai":
-      return generateWithOpenAI(prompt, model);
+    case "openrouter":
+    case "nim":
+    case "custom":
+      return generateWithOpenAI(prompt, model, effectiveProvider);
     default:
       throw new Error(`Unknown provider: ${effectiveProvider}`);
   }

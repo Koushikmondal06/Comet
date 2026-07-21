@@ -1,13 +1,25 @@
-import { select, password } from "@inquirer/prompts";
+import { select, password, input, confirm } from "@inquirer/prompts";
 import { loadConfig, resetConfig, updateConfig } from "../../config/config";
 import { logger } from "../../utils/logger";
 import { printTable } from "../ui/table";
-import { AIProvider } from "../../types/config";
-import { saveApiKeyToEnv } from "../../utils/env";
+import { AIProvider, Config } from "../../types/config";
+import { saveApiKeyToEnv, hasClaudeCode } from "../../utils/env";
 import { getModelsForProvider } from "../../constants/models";
+import { getModelChoices } from "../../ai/listModels";
+import {
+  PROVIDERS,
+  PROVIDER_NAMES,
+  isProvider,
+  providerListText,
+} from "../../constants/providers";
 
 export interface ConfigCommandOptions {
   apiKey?: string | boolean;
+  provider?: string;
+}
+
+function providerChoices() {
+  return PROVIDER_NAMES.map((p) => ({ name: PROVIDERS[p].label, value: p }));
 }
 
 async function promptAndSaveApiKey(preselected?: AIProvider): Promise<void> {
@@ -15,24 +27,87 @@ async function promptAndSaveApiKey(preselected?: AIProvider): Promise<void> {
     preselected ||
     (await select<AIProvider>({
       message: "Which provider's key do you want to set?",
-      choices: [
-        { name: "Gemini", value: "gemini" },
-        { name: "OpenAI", value: "openai" },
-      ],
+      choices: providerChoices(),
     }));
-  const keyUrl =
-    provider === "gemini"
-      ? "https://aistudio.google.com/apikey"
-      : "https://platform.openai.com/api-keys";
-  logger.info(`Get your key at: ${keyUrl}`);
+  const info = PROVIDERS[provider];
+  if (info.keyUrl) {
+    logger.info(`Get your key at: ${info.keyUrl}`);
+  }
   const apiKey = await password({
-    message: `Enter your ${provider} API key:`,
+    message: `Enter your ${info.label} API key:`,
     mask: "*",
     validate: (value: string) =>
       value.trim().length > 0 || "API key cannot be empty",
   });
   saveApiKeyToEnv(provider, apiKey.trim());
-  logger.success(`${provider} API key saved!`);
+  logger.success(`${info.label} API key saved!`);
+}
+
+async function promptModel(provider: AIProvider): Promise<string> {
+  const choices = getModelsForProvider(provider);
+  if (choices.length === 0) {
+    return (
+      await input({
+        message: "Model id (as expected by your endpoint):",
+        validate: (v: string) => v.trim().length > 0 || "Model cannot be empty",
+      })
+    ).trim();
+  }
+  return select({
+    message: `Select ${PROVIDERS[provider].label} model:`,
+    choices,
+  });
+}
+
+// Shared by the interactive menu and `comet config --provider <name>`
+async function connectProvider(preselected?: AIProvider): Promise<void> {
+  const provider =
+    preselected ||
+    (await select<AIProvider>({
+      message: "Select AI provider:",
+      choices: providerChoices(),
+    }));
+  const info = PROVIDERS[provider];
+  const updates: Partial<Config> = { provider };
+
+  if (provider === "custom") {
+    const customBaseUrl = (
+      await input({
+        message: "Base URL of your OpenAI-compatible API (e.g. http://localhost:11434/v1):",
+        default: loadConfig().customBaseUrl,
+        validate: (v: string) =>
+          /^https?:\/\/.+/.test(v.trim()) || "Enter a http(s) URL",
+      })
+    ).trim();
+    updates.customBaseUrl = customBaseUrl;
+  }
+
+  // Claude: offer the local Claude Code CLI before asking for a key
+  if (provider === "claude" && hasClaudeCode()) {
+    const useClaudeCode = await confirm({
+      message:
+        "Claude Code detected on this machine. Can I use your Claude Code? (uses its login, no API key needed)",
+      default: true,
+    });
+    updates.claudeBackend = useClaudeCode ? "claude-code" : "api";
+  }
+
+  updates.model = info.defaultModel || (await promptModel(provider));
+  updateConfig(updates);
+  logger.success(`Provider set to ${info.label} (model: ${updates.model})`);
+
+  // Prompt for a key unless claude-code covers it or one is already set
+  const needsKey =
+    updates.claudeBackend !== "claude-code" && !process.env[info.envVar];
+  if (needsKey) {
+    const setNow = await confirm({
+      message: `No ${info.envVar} found. Set the API key now?`,
+      default: true,
+    });
+    if (setNow) {
+      await promptAndSaveApiKey(provider);
+    }
+  }
 }
 
 export async function configCommand(
@@ -40,13 +115,25 @@ export async function configCommand(
 ): Promise<void> {
   const config = loadConfig();
 
+  // --provider <name>: switch/connect a provider directly
+  if (options.provider) {
+    if (!isProvider(options.provider)) {
+      logger.error(
+        `Invalid provider '${options.provider}'. Use one of: ${providerListText()}.`
+      );
+      process.exit(1);
+    }
+    await connectProvider(options.provider);
+    return;
+  }
+
   // --api-key [provider]: jump straight to the key prompt
   if (options.apiKey) {
     let provider: AIProvider | undefined;
     if (typeof options.apiKey === "string") {
-      if (options.apiKey !== "gemini" && options.apiKey !== "openai") {
+      if (!isProvider(options.apiKey)) {
         logger.error(
-          `Invalid provider '${options.apiKey}'. Use 'gemini' or 'openai'.`
+          `Invalid provider '${options.apiKey}'. Use one of: ${providerListText()}.`
         );
         process.exit(1);
       }
@@ -63,7 +150,7 @@ export async function configCommand(
     choices: [
       { name: "View current config", value: "view" },
       { name: "Set API key", value: "apikey" },
-      { name: "Set provider (gemini/openai)", value: "provider" },
+      { name: `Connect provider (${providerListText()})`, value: "provider" },
       { name: "Set AI model", value: "model" },
       { name: "Toggle emoji prefix", value: "emoji" },
       { name: "Toggle auto-commit", value: "autoCommit" },
@@ -77,27 +164,27 @@ export async function configCommand(
       logger.blank();
       logger.bold("Current Configuration:");
       logger.blank();
+      const info = PROVIDERS[config.provider];
       const keyStatus =
-        config.provider === "gemini"
-          ? process.env.GEMINI_API_KEY
-            ? "Set"
-            : "Not set"
-          : process.env.OPENAI_API_KEY
+        config.provider === "claude" && config.claudeBackend === "claude-code"
+          ? "Claude Code (no key needed)"
+          : process.env[info.envVar]
             ? "Set"
             : "Not set";
-      printTable(
-        ["Key", "Value"],
-        [
-          ["Provider", config.provider],
-          ["Model", config.model],
-          ["API Key", keyStatus],
-          ["Emoji", config.emoji ? "ON" : "OFF"],
-          ["Auto-commit", config.autoCommit ? "ON" : "OFF"],
-          ["Theme", config.theme],
-          ["Max Length", config.maxLength.toString()],
-          ["Language", config.language],
-        ]
-      );
+      const rows: [string, string][] = [
+        ["Provider", info.label],
+        ["Model", config.model],
+        ["API Key", keyStatus],
+        ["Emoji", config.emoji ? "ON" : "OFF"],
+        ["Auto-commit", config.autoCommit ? "ON" : "OFF"],
+        ["Theme", config.theme],
+        ["Max Length", config.maxLength.toString()],
+        ["Language", config.language],
+      ];
+      if (config.provider === "custom") {
+        rows.splice(2, 0, ["Base URL", config.customBaseUrl || "Not set"]);
+      }
+      printTable(["Key", "Value"], rows);
       break;
     }
 
@@ -107,23 +194,25 @@ export async function configCommand(
     }
 
     case "provider": {
-      const provider = await select<AIProvider>({
-        message: "Select AI provider:",
-        choices: [
-          { name: "Gemini", value: "gemini" },
-          { name: "OpenAI", value: "openai" },
-        ],
-      });
-      updateConfig({ provider });
-      logger.success(`Provider set to ${provider}`);
+      await connectProvider();
       break;
     }
 
     case "model": {
-      const model = await select({
-        message: `Select ${config.provider} model:`,
-        choices: getModelsForProvider(config.provider),
-      });
+      const staticChoices = getModelsForProvider(config.provider);
+      let choices = staticChoices;
+      try {
+        choices = await getModelChoices(config.provider);
+      } catch {
+        // no key yet / offline — static list is fine
+      }
+      const model =
+        choices.length === 0
+          ? await promptModel(config.provider)
+          : await select({
+              message: `Select ${config.provider} model:`,
+              choices,
+            });
       updateConfig({ model });
       logger.success(`Model set to ${model}`);
       break;

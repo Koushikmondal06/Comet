@@ -54,7 +54,7 @@ function showHelp(): void {
     ["-q, --quiet", "Suppress non-essential output"],
     ["--choose-model", "Choose AI model before generating"],
     ["--style <style>", "Commit message style (concise, detailed, casual...)"],
-    ["--provider <name>", "AI provider (gemini/openai)"],
+    ["--provider <name>", "AI provider (gemini/openai/claude/openrouter/nim/custom)"],
     ["--model <name>", "Specific AI model to use"],
     ["--no-banner", "Suppress the ASCII banner"],
   ];
@@ -72,6 +72,7 @@ function showHelp(): void {
   console.log(`  ${chalk.gray("comet explain")}                ${chalk.gray("# Explain changes in plain English")}`);
   console.log(`  ${chalk.gray("comet config")}                 ${chalk.gray("# Configure settings")}`);
   console.log(`  ${chalk.gray("comet config --api-key")}       ${chalk.gray("# Change your API key")}`);
+  console.log(`  ${chalk.gray("comet config --provider claude")} ${chalk.gray("# Connect/switch AI provider")}`);
   console.log(`  ${chalk.gray("comet history --search fix")}   ${chalk.gray("# Search commit history")}`);
   console.log("");
 }
@@ -98,7 +99,7 @@ program
   .option("-p, --push", "Push after commit")
   .option("-d, --dry-run", "Show suggestions without committing")
   .option("-m, --message <message>", "Skip selection, use this message")
-  .option("--provider <provider>", "AI provider (gemini/openai)")
+  .option("--provider <provider>", "AI provider (gemini/openai/claude/openrouter/nim/custom)")
   .option("--model <model>", "AI model to use")
   .option("-n, --count <count>", "Number of suggestions", "3")
   .option("--choose-model", "Choose AI model before generating")
@@ -119,7 +120,7 @@ program
 program
   .command("review")
   .description("AI-powered code review of staged changes")
-  .option("--provider <provider>", "AI provider (gemini/openai)")
+  .option("--provider <provider>", "AI provider (gemini/openai/claude/openrouter/nim/custom)")
   .option("--model <model>", "AI model to use")
   .action(async (options: AIOptions) => {
     if (program.opts().banner !== false) showBanner();
@@ -129,7 +130,7 @@ program
 program
   .command("explain")
   .description("Explain staged changes in plain English")
-  .option("--provider <provider>", "AI provider (gemini/openai)")
+  .option("--provider <provider>", "AI provider (gemini/openai/claude/openrouter/nim/custom)")
   .option("--model <model>", "AI model to use")
   .action(async (options: AIOptions) => {
     if (program.opts().banner !== false) showBanner();
@@ -141,7 +142,11 @@ program
   .description("Configure AI Commit Generator settings")
   .option(
     "-k, --api-key [provider]",
-    "Set the API key (optionally for 'gemini' or 'openai'; defaults to current provider)"
+    "Set the API key (optionally for a provider name; defaults to current provider)"
+  )
+  .option(
+    "-p, --provider <name>",
+    "Connect/switch AI provider (gemini/openai/claude/openrouter/nim/custom)"
   )
   .action(async (options) => {
     if (program.opts().banner !== false) showBanner();
@@ -161,7 +166,7 @@ program
 program
   .command("refactor")
   .description("AI-powered refactoring suggestions for staged changes")
-  .option("--provider <provider>", "AI provider (gemini/openai)")
+  .option("--provider <provider>", "AI provider (gemini/openai/claude/openrouter/nim/custom)")
   .option("--model <model>", "AI model to use")
   .action(async (options: AIOptions) => {
     if (program.opts().banner !== false) showBanner();

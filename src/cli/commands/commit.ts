@@ -18,7 +18,7 @@ import { loadConfig } from "../../config/config";
 import { ensureApiKey } from "../../utils/env";
 import { CommitSuggestion, AIContext } from "../../types/commit";
 import { EMOJIS } from "../../constants/emojis";
-import { getModelsForProvider } from "../../constants/models";
+import { getModelChoices } from "../../ai/listModels";
 
 export interface CommitCommandOptions {
   push?: boolean;
@@ -80,10 +80,20 @@ export async function commitCommand(options: CommitCommandOptions): Promise<void
     const effectiveProvider = provider || config.provider;
 
     if (options.chooseModel && !chosenModel) {
-      chosenModel = await select({
-        message: `Select ${effectiveProvider} model:`,
-        choices: getModelsForProvider(effectiveProvider),
-      });
+      // Live list from the provider's API; static list on failure
+      const choices = await withSpinner("Fetching available models", async () =>
+        getModelChoices(effectiveProvider)
+      );
+      chosenModel =
+        choices.length > 0
+          ? await select({
+              message: `Select ${effectiveProvider} model:`,
+              choices,
+            })
+          : await input({
+              message: "Model id:",
+              default: config.model,
+            });
     }
 
     let commitMood = options.style || "";
