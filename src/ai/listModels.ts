@@ -63,8 +63,22 @@ async function fetchAvailableModels(
     default: {
       // openai / openrouter / nim / custom — GET {base}/models
       const apiKey = getApiKeyForProvider(provider);
-      const data = await fetchJson(`${resolveBaseUrl(provider).replace(/\/+$/, "")}/models`, {
-        Authorization: `Bearer ${apiKey}`,
+      const base = resolveBaseUrl(provider).replace(/\/+$/, "");
+
+      // Anthropic-style custom endpoint speaks Anthropic's models API
+      if (provider === "custom" && loadConfig().customApi === "anthropic") {
+        const data = await fetchJson(`${base}/models`, {
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        });
+        return (data.data ?? []).map((m: any) => ({
+          name: m.display_name || m.id,
+          value: m.id,
+        }));
+      }
+
+      const data = await fetchJson(`${base}/models`, {
+        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
       });
       return (data.data ?? [])
         .map((m: any) => m.id)

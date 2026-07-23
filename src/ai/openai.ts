@@ -18,23 +18,25 @@ function isReasoningModel(model: string): boolean {
 }
 
 function buildRequestBody(model: string, prompt: string, provider: AIProvider): Record<string, unknown> {
+  let body: Record<string, unknown>;
   if (provider === "openai" && isReasoningModel(model)) {
-    return {
-      model,
+    body = {
       messages: [{ role: "user", content: `${SYSTEM_PROMPT}\n\n${prompt}` }],
       max_completion_tokens: 8192,
     };
+  } else {
+    body = {
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.7,
+      max_tokens: 8192,
+    };
   }
-
-  return {
-    model,
-    messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: prompt },
-    ],
-    temperature: 0.7,
-    max_tokens: 8192,
-  };
+  // Custom endpoints without a configured model use the server default
+  if (model) body.model = model;
+  return body;
 }
 
 export function resolveBaseUrl(provider: AIProvider): string {
@@ -66,13 +68,19 @@ export async function generateWithOpenAI(
     info.defaultModel ||
     loadConfig().model;
 
-  if (!actualModel) {
+  // Custom endpoints may have a server-side default model; others need one
+  if (!actualModel && provider !== "custom") {
     throw new Error(
       `No model configured for ${info.label}. Run 'comet config' to set one.`
     );
   }
 
   const url = `${resolveBaseUrl(provider).replace(/\/+$/, "")}/chat/completions`;
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     const controller = new AbortController();
@@ -81,10 +89,7 @@ export async function generateWithOpenAI(
     try {
       const response = await fetch(url, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
+        headers,
         body: JSON.stringify(buildRequestBody(actualModel, prompt, provider)),
         signal: controller.signal,
       });

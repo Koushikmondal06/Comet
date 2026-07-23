@@ -2,7 +2,8 @@ import { AIProvider } from "../types/config";
 import { AIContext } from "../types/commit";
 import { generateWithGemini } from "./gemini";
 import { generateWithOpenAI } from "./openai";
-import { generateWithClaude } from "./claude";
+import { generateWithClaude, generateWithAnthropicCompatible } from "./claude";
+import { loadConfig } from "../config/config";
 import { buildCommitPrompt } from "./prompts";
 import { getEffectiveProvider } from "../config/config";
 import { isProvider, providerListText } from "../constants/providers";
@@ -33,10 +34,16 @@ export async function generateAIResponse(
       return generateWithGemini(prompt, model);
     case "claude":
       return generateWithClaude(prompt, model);
+    case "custom":
+      // Custom endpoints can speak either wire protocol
+      if (loadConfig().customApi === "anthropic") {
+        return generateWithAnthropicCompatible(prompt, model);
+      }
+      return generateWithOpenAI(prompt, model, "custom");
     case "openai":
     case "openrouter":
+    case "groq":
     case "nim":
-    case "custom":
       return generateWithOpenAI(prompt, model, effectiveProvider);
     default:
       throw new Error(`Unknown provider: ${effectiveProvider}`);

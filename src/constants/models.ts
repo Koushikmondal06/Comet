@@ -33,6 +33,13 @@ export const OPENROUTER_MODELS: ModelChoice[] = [
   { name: "DeepSeek V3", value: "deepseek/deepseek-chat" },
 ];
 
+export const GROQ_MODELS: ModelChoice[] = [
+  { name: "Llama 3.3 70B Versatile (recommended)", value: "llama-3.3-70b-versatile" },
+  { name: "Llama 3.1 8B Instant (fastest)", value: "llama-3.1-8b-instant" },
+  { name: "DeepSeek R1 Distill 70B (reasoning)", value: "deepseek-r1-distill-llama-70b" },
+  { name: "Gemma 2 9B", value: "gemma2-9b-it" },
+];
+
 export const NIM_MODELS: ModelChoice[] = [
   { name: "Llama 3.3 70B", value: "meta/llama-3.3-70b-instruct" },
   { name: "Llama 3.1 405B", value: "meta/llama-3.1-405b-instruct" },
@@ -51,6 +58,8 @@ export function getModelsForProvider(provider: string): ModelChoice[] {
       return CLAUDE_MODELS;
     case "openrouter":
       return OPENROUTER_MODELS;
+    case "groq":
+      return GROQ_MODELS;
     case "nim":
       return NIM_MODELS;
     default:

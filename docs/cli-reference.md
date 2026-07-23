@@ -9,7 +9,7 @@ Generate AI-powered commit messages.
 |------|-------------|
 | `-p, --push` | Push after committing |
 | `-d, --dry-run` | Show suggestions only |
-| `--provider <p>` | Override AI provider (`gemini`/`openai`/`claude`/`openrouter`/`nim`/`custom`) |
+| `--provider <p>` | Override AI provider (`gemini`/`openai`/`claude`/`openrouter`/`groq`/`nim`/`custom`) |
 | `--model <m>` | Override AI model |
 | `--choose-model` | Pick a model interactively (list fetched live from the provider's API) |
 | `-n, --count <n>` | Number of suggestions (default: 3) |
@@ -26,7 +26,7 @@ Interactive configuration management.
 
 | Flag | Description |
 |------|-------------|
-| `-p, --provider <name>` | Connect/switch provider (`gemini`/`openai`/`claude`/`openrouter`/`nim`/`custom`). Custom prompts for a base URL; Claude offers to use an installed Claude Code CLI (no API key) |
+| `-p, --provider <name>` | Connect/switch provider (`gemini`/`openai`/`claude`/`openrouter`/`groq`/`nim`/`custom`). Custom prompts for a base URL; Claude offers to use an installed Claude Code CLI (no API key) |
 | `-k, --api-key [provider]` | Set an API key (defaults to current provider) |
 
 ### `comet history`
@@ -66,7 +66,8 @@ Stored in `~/.comet/config.json`:
 | `OPENAI_API_KEY` | OpenAI API key |
 | `ANTHROPIC_API_KEY` | Anthropic (Claude) API key |
 | `OPENROUTER_API_KEY` | OpenRouter API key |
+| `GROQ_API_KEY` | Groq API key |
 | `NVIDIA_API_KEY` | NVIDIA NIM API key |
 | `CUSTOM_API_KEY` | Key for a custom OpenAI-compatible endpoint |
 | `CUSTOM_BASE_URL` | Base URL for the custom provider |
-| `AI_PROVIDER` | Override default provider (`gemini`/`openai`/`claude`/`openrouter`/`nim`/`custom`) |
+| `AI_PROVIDER` | Override default provider (`gemini`/`openai`/`claude`/`openrouter`/`groq`/`nim`/`custom`) |

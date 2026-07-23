@@ -124,6 +124,9 @@ export function getApiKeyForProvider(provider: AIProvider): string {
   loadLocalEnv();
   if (process.env[envVarName]) return process.env[envVarName]!;
 
+  // Custom endpoints (e.g. local Ollama) may not need a key at all
+  if (provider === "custom") return "";
+
   throw new Error(`Missing ${envVarName}. Run 'comet config' to set it.`);
 }
 
@@ -133,6 +136,9 @@ export async function ensureApiKey(providerOverride?: AIProvider): Promise<void>
 
   // Claude via the local Claude Code CLI needs no key
   if (provider === "claude" && config.claudeBackend === "claude-code") return;
+
+  // Custom endpoints may be keyless; key (if any) is collected at connect time
+  if (provider === "custom") return;
 
   const info = PROVIDERS[provider];
 

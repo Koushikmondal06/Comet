@@ -6,6 +6,8 @@ import { AIProvider, Config } from "../../types/config";
 import { saveApiKeyToEnv, hasClaudeCode } from "../../utils/env";
 import { getModelsForProvider } from "../../constants/models";
 import { getModelChoices } from "../../ai/listModels";
+import { detectCustomEndpoint } from "../../ai/detectCustom";
+import { withSpinner } from "../ui/spinner";
 import {
   PROVIDERS,
   PROVIDER_NAMES,
@@ -48,8 +50,7 @@ async function promptModel(provider: AIProvider): Promise<string> {
   if (choices.length === 0) {
     return (
       await input({
-        message: "Model id (as expected by your endpoint):",
-        validate: (v: string) => v.trim().length > 0 || "Model cannot be empty",
+        message: "Model id (leave blank to use your endpoint's default):",
       })
     ).trim();
   }
@@ -57,6 +58,69 @@ async function promptModel(provider: AIProvider): Promise<string> {
     message: `Select ${PROVIDERS[provider].label} model:`,
     choices,
   });
+}
+
+// Custom endpoint flow: base URL → optional key → auto-detect wire
+// protocol (OpenAI vs Anthropic style) → pick a model from the endpoint.
+async function connectCustomProvider(): Promise<void> {
+  const customBaseUrl = (
+    await input({
+      message: "Base URL of your endpoint (e.g. http://localhost:11434/v1):",
+      default: loadConfig().customBaseUrl,
+      validate: (v: string) =>
+        /^https?:\/\/.+/.test(v.trim()) || "Enter a http(s) URL",
+    })
+  ).trim();
+
+  const apiKey = (
+    await password({
+      message: "API key (leave blank if your endpoint doesn't need one):",
+      mask: "*",
+    })
+  ).trim();
+  if (apiKey) saveApiKeyToEnv("custom", apiKey);
+
+  const detected = await withSpinner("Detecting endpoint", async () =>
+    detectCustomEndpoint(customBaseUrl, apiKey)
+  );
+
+  const updates: Partial<Config> = { provider: "custom" };
+
+  if (detected) {
+    updates.customBaseUrl = detected.baseUrl;
+    updates.customApi = detected.api;
+    logger.success(
+      `Detected ${detected.api === "anthropic" ? "Anthropic" : "OpenAI"}-compatible API (${detected.models.length} models)`
+    );
+    updates.model =
+      detected.models.length > 0
+        ? await select({ message: "Select model:", choices: detected.models })
+        : (
+            await input({
+              message: "Model id (leave blank to use your endpoint's default):",
+            })
+          ).trim();
+  } else {
+    logger.warn("Could not auto-detect the endpoint type.");
+    updates.customBaseUrl = customBaseUrl;
+    updates.customApi = await select({
+      message: "Which API style does your endpoint speak?",
+      choices: [
+        { name: "OpenAI-compatible (/chat/completions)", value: "openai" as const },
+        { name: "Anthropic-compatible (/messages)", value: "anthropic" as const },
+      ],
+    });
+    updates.model = (
+      await input({
+        message: "Model id (leave blank to use your endpoint's default):",
+      })
+    ).trim();
+  }
+
+  updateConfig(updates);
+  logger.success(
+    `Provider set to Custom (${updates.customApi}) — model: ${updates.model || "endpoint default"}`
+  );
 }
 
 // Shared by the interactive menu and `comet config --provider <name>`
@@ -67,20 +131,14 @@ async function connectProvider(preselected?: AIProvider): Promise<void> {
       message: "Select AI provider:",
       choices: providerChoices(),
     }));
-  const info = PROVIDERS[provider];
-  const updates: Partial<Config> = { provider };
 
   if (provider === "custom") {
-    const customBaseUrl = (
-      await input({
-        message: "Base URL of your OpenAI-compatible API (e.g. http://localhost:11434/v1):",
-        default: loadConfig().customBaseUrl,
-        validate: (v: string) =>
-          /^https?:\/\/.+/.test(v.trim()) || "Enter a http(s) URL",
-      })
-    ).trim();
-    updates.customBaseUrl = customBaseUrl;
+    await connectCustomProvider();
+    return;
   }
+
+  const info = PROVIDERS[provider];
+  const updates: Partial<Config> = { provider };
 
   // Claude: offer the local Claude Code CLI before asking for a key
   if (provider === "claude" && hasClaudeCode()) {
@@ -182,7 +240,10 @@ export async function configCommand(
         ["Language", config.language],
       ];
       if (config.provider === "custom") {
-        rows.splice(2, 0, ["Base URL", config.customBaseUrl || "Not set"]);
+        rows.splice(2, 0,
+          ["Base URL", config.customBaseUrl || "Not set"],
+          ["API Style", config.customApi || "openai"]
+        );
       }
       printTable(["Key", "Value"], rows);
       break;

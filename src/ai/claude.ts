@@ -70,7 +70,47 @@ async function generateWithAnthropicApi(
   model: string
 ): Promise<AIResponse> {
   const apiKey = getApiKeyForProvider("claude");
-  const url = "https://api.anthropic.com/v1/messages";
+  return anthropicMessagesRequest(
+    "https://api.anthropic.com/v1/messages",
+    apiKey,
+    prompt,
+    model,
+    "Anthropic"
+  );
+}
+
+// Custom provider with an Anthropic-style endpoint (e.g. a Claude Code
+// proxy). Model is optional — omitted, the endpoint's default is used.
+export async function generateWithAnthropicCompatible(
+  prompt: string,
+  model?: string
+): Promise<AIResponse> {
+  const config = loadConfig();
+  const baseUrl = process.env.CUSTOM_BASE_URL || config.customBaseUrl;
+  if (!baseUrl) {
+    throw new Error(
+      "No base URL set for the custom provider. Run 'comet config' to set it (or export CUSTOM_BASE_URL)."
+    );
+  }
+  const apiKey = getApiKeyForProvider("custom");
+  const url = `${baseUrl.replace(/\/+$/, "")}/messages`;
+  const actualModel = model || config.model || undefined;
+  return anthropicMessagesRequest(url, apiKey, prompt, actualModel, "Custom");
+}
+
+async function anthropicMessagesRequest(
+  url: string,
+  apiKey: string,
+  prompt: string,
+  model: string | undefined,
+  label: string
+): Promise<AIResponse> {
+  const body: Record<string, unknown> = {
+    max_tokens: 8192,
+    system: SYSTEM_PROMPT,
+    messages: [{ role: "user", content: prompt }],
+  };
+  if (model) body.model = model;
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     const controller = new AbortController();
@@ -84,12 +124,7 @@ async function generateWithAnthropicApi(
           "x-api-key": apiKey,
           "anthropic-version": ANTHROPIC_VERSION,
         },
-        body: JSON.stringify({
-          model,
-          max_tokens: 8192,
-          system: SYSTEM_PROMPT,
-          messages: [{ role: "user", content: prompt }],
-        }),
+        body: JSON.stringify(body),
         signal: controller.signal,
       });
 
@@ -107,7 +142,7 @@ async function generateWithAnthropicApi(
 
         const text = data.content?.find((b) => b.type === "text")?.text;
         if (!text) {
-          throw new Error("No content received from Anthropic API");
+          throw new Error(`No content received from ${label} API`);
         }
 
         return { content: text };
@@ -122,12 +157,12 @@ async function generateWithAnthropicApi(
       }
 
       const error = await response.text();
-      throw new Error(`Anthropic API error: ${response.status} - ${error}`);
+      throw new Error(`${label} API error: ${response.status} - ${error}`);
     } catch (err: any) {
       clearTimeout(timeout);
 
       if (err.name === "AbortError") {
-        throw new Error("Anthropic API request timed out after 60s");
+        throw new Error(`${label} API request timed out after 60s`);
       }
 
       if (attempt === MAX_RETRIES - 1) {
@@ -138,5 +173,5 @@ async function generateWithAnthropicApi(
     }
   }
 
-  throw new Error("Anthropic API request failed after all retries");
+  throw new Error(`${label} API request failed after all retries`);
 }

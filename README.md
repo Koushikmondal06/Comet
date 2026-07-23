@@ -1,6 +1,6 @@
 # Comet
 
-> AI-powered commit message generator that reads your staged Git diffs and generates clean, Conventional Commits messages using Gemini, OpenAI, Claude, OpenRouter, NVIDIA NIM, or any OpenAI-compatible endpoint.
+> AI-powered commit message generator that reads your staged Git diffs and generates clean, Conventional Commits messages using Gemini, OpenAI, Claude, OpenRouter, Groq, NVIDIA NIM, or any OpenAI- or Anthropic-compatible endpoint.
 
 <p align="center">
   <img src="https://img.shields.io/npm/v/@koushikmondal06/comet?color=blue" alt="npm version" />
@@ -29,7 +29,7 @@ Writing good commit messages takes time. Comet reads your staged changes, unders
 - **Explain changes** — plain English summary of what changed
 - **Refactor suggestions** — AI-powered improvement ideas
 - **Commit history** — browse and search past commits
-- **6 providers** — Gemini, OpenAI, Claude (Anthropic), OpenRouter, NVIDIA NIM, or any custom OpenAI-compatible endpoint (Ollama, LM Studio, vLLM...)
+- **7 providers** — Gemini, OpenAI, Claude (Anthropic), OpenRouter, Groq, NVIDIA NIM, or any custom OpenAI/Anthropic-compatible endpoint (Ollama, LM Studio, vLLM, Claude proxies...)
 - **Claude Code integration** — have Claude Code installed? Comet can use its login, no API key needed
 - **Live model lists** — `--choose-model` fetches available models straight from your provider's API
 - **Emoji prefixes** — optional Conventional Commits + emoji
@@ -75,15 +75,20 @@ comet --push
 | `comet --push` | Commit and push to remote |
 | `comet --dry-run` | Show suggestions without committing |
 | `comet -m "msg"` | Skip selection, use provided message |
+| `comet --choose-model` | Pick a model interactively — list fetched live from your provider's API |
 | `comet review` | AI code review of staged changes |
 | `comet explain` | Explain staged changes in plain English |
 | `comet refactor` | Get AI refactoring suggestions |
-| `comet config` | Configure settings |
-| `comet config --provider <name>` | Connect/switch AI provider (`gemini`/`openai`/`claude`/`openrouter`/`nim`/`custom`) |
+| `comet config` | Configure settings (interactive menu) |
+| `comet config --provider <name>` | Connect/switch AI provider (`gemini`/`openai`/`claude`/`openrouter`/`groq`/`nim`/`custom`) |
 | `comet config --api-key [provider]` | Set/change an API key for any provider |
 | `comet history` | View and search commit history |
 | `comet history -s <query>` | Search commit history |
 | `comet history --clear` | Clear commit history |
+| `comet help` | Show help message |
+| `comet --version` | Show installed version |
+
+`review`, `explain`, and `refactor` also accept `--provider <name>` and `--model <name>`.
 
 ### Options
 
@@ -97,7 +102,7 @@ comet --push
 | `--style <style>` | Commit message style (e.g. concise, detailed, casual) |
 | `-y, --yes` | Auto-confirm (skip prompts) |
 | `-q, --quiet` | Suppress non-essential output |
-| `--provider <name>` | AI provider: `gemini`/`openai`/`claude`/`openrouter`/`nim`/`custom` (also on `review`, `explain`, `refactor`) |
+| `--provider <name>` | AI provider: `gemini`/`openai`/`claude`/`openrouter`/`groq`/`nim`/`custom` (also on `review`, `explain`, `refactor`) |
 | `--model <name>` | Specific AI model to use (also on `review`, `explain`, `refactor`) |
 | `--no-banner` | Suppress the ASCII banner |
 
@@ -114,7 +119,7 @@ comet config
 Connect or switch a provider directly:
 
 ```bash
-comet config --provider claude      # or gemini/openai/openrouter/nim/custom
+comet config --provider claude      # or gemini/openai/openrouter/groq/nim/custom
 ```
 
 Or manually edit `~/.comet/config.json`:
@@ -141,8 +146,9 @@ Or manually edit `~/.comet/config.json`:
 | **OpenAI** | `OPENAI_API_KEY` | [platform.openai.com](https://platform.openai.com/api-keys) |
 | **Claude (Anthropic)** | `ANTHROPIC_API_KEY` | Or zero-key via the [Claude Code](https://claude.com/claude-code) CLI — Comet detects it and asks to use its login |
 | **OpenRouter** | `OPENROUTER_API_KEY` | One key, hundreds of models — [openrouter.ai/keys](https://openrouter.ai/keys) |
+| **Groq** | `GROQ_API_KEY` | Very fast inference, free tier — [console.groq.com/keys](https://console.groq.com/keys) |
 | **NVIDIA NIM** | `NVIDIA_API_KEY` | [build.nvidia.com](https://build.nvidia.com) |
-| **Custom** | `CUSTOM_API_KEY` | Any OpenAI-compatible endpoint — set a base URL (Ollama, LM Studio, vLLM...) |
+| **Custom** | `CUSTOM_API_KEY` | Any OpenAI- or Anthropic-compatible endpoint — set a base URL (Ollama, LM Studio, vLLM, Claude proxies...); API style auto-detected |
 
 ### Using Claude Code (no API key)
 
@@ -158,10 +164,11 @@ If the `claude` CLI is installed and logged in, run `comet config --provider cla
 | `OPENAI_API_KEY` | OpenAI API key | For OpenAI |
 | `ANTHROPIC_API_KEY` | Anthropic API key | For Claude (unless using Claude Code) |
 | `OPENROUTER_API_KEY` | OpenRouter API key | For OpenRouter |
+| `GROQ_API_KEY` | Groq API key | For Groq |
 | `NVIDIA_API_KEY` | NVIDIA NIM API key | For NIM |
 | `CUSTOM_API_KEY` | Key for your custom endpoint | For custom |
 | `CUSTOM_BASE_URL` | Base URL of your OpenAI-compatible API | For custom (or set via `comet config`) |
-| `AI_PROVIDER` | Default provider (`gemini`/`openai`/`claude`/`openrouter`/`nim`/`custom`) | No |
+| `AI_PROVIDER` | Default provider (`gemini`/`openai`/`claude`/`openrouter`/`groq`/`nim`/`custom`) | No |
 
 ---
 
@@ -222,6 +229,17 @@ npm run dev
 | `npm test` | Run tests |
 | `npm run lint` | Lint source files |
 | `npm run typecheck` | Type-check without emitting |
+
+---
+
+## Contributors
+
+| Name | GitHub |
+|------|--------|
+| **Koushik Mondal** — author & maintainer | [@Koushikmondal06](https://github.com/Koushikmondal06) |
+| **Himanshu Malik** — multi-provider support (Claude, OpenRouter, NVIDIA NIM, custom endpoints) | — |
+
+Contributions welcome — open an issue or PR at [Koushikmondal06/Comet](https://github.com/Koushikmondal06/Comet).
 
 ---
 

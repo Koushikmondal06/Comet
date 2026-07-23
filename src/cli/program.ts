@@ -54,7 +54,7 @@ function showHelp(): void {
     ["-q, --quiet", "Suppress non-essential output"],
     ["--choose-model", "Choose AI model before generating"],
     ["--style <style>", "Commit message style (concise, detailed, casual...)"],
-    ["--provider <name>", "AI provider (gemini/openai/claude/openrouter/nim/custom)"],
+    ["--provider <name>", "AI provider (gemini/openai/claude/openrouter/groq/nim/custom)"],
     ["--model <name>", "Specific AI model to use"],
     ["--no-banner", "Suppress the ASCII banner"],
   ];
@@ -99,7 +99,7 @@ program
   .option("-p, --push", "Push after commit")
   .option("-d, --dry-run", "Show suggestions without committing")
   .option("-m, --message <message>", "Skip selection, use this message")
-  .option("--provider <provider>", "AI provider (gemini/openai/claude/openrouter/nim/custom)")
+  .option("--provider <provider>", "AI provider (gemini/openai/claude/openrouter/groq/nim/custom)")
   .option("--model <model>", "AI model to use")
   .option("-n, --count <count>", "Number of suggestions", "3")
   .option("--choose-model", "Choose AI model before generating")
@@ -120,7 +120,7 @@ program
 program
   .command("review")
   .description("AI-powered code review of staged changes")
-  .option("--provider <provider>", "AI provider (gemini/openai/claude/openrouter/nim/custom)")
+  .option("--provider <provider>", "AI provider (gemini/openai/claude/openrouter/groq/nim/custom)")
   .option("--model <model>", "AI model to use")
   .action(async (options: AIOptions) => {
     if (program.opts().banner !== false) showBanner();
@@ -130,7 +130,7 @@ program
 program
   .command("explain")
   .description("Explain staged changes in plain English")
-  .option("--provider <provider>", "AI provider (gemini/openai/claude/openrouter/nim/custom)")
+  .option("--provider <provider>", "AI provider (gemini/openai/claude/openrouter/groq/nim/custom)")
   .option("--model <model>", "AI model to use")
   .action(async (options: AIOptions) => {
     if (program.opts().banner !== false) showBanner();
@@ -146,7 +146,7 @@ program
   )
   .option(
     "-p, --provider <name>",
-    "Connect/switch AI provider (gemini/openai/claude/openrouter/nim/custom)"
+    "Connect/switch AI provider (gemini/openai/claude/openrouter/groq/nim/custom)"
   )
   .action(async (options) => {
     if (program.opts().banner !== false) showBanner();
@@ -166,7 +166,7 @@ program
 program
   .command("refactor")
   .description("AI-powered refactoring suggestions for staged changes")
-  .option("--provider <provider>", "AI provider (gemini/openai/claude/openrouter/nim/custom)")
+  .option("--provider <provider>", "AI provider (gemini/openai/claude/openrouter/groq/nim/custom)")
   .option("--model <model>", "AI model to use")
   .action(async (options: AIOptions) => {
     if (program.opts().banner !== false) showBanner();
