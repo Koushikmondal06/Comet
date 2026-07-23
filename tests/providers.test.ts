@@ -78,6 +78,32 @@ describe("detectCustomEndpoint", () => {
     expect(detected?.models.map((m) => m.value)).toEqual(["llama3"]);
   });
 
+  it("classifies by supported_endpoint_types when display_name is absent", async () => {
+    // Shape returned by cc.freemodel.dev — Anthropic models, no display_name
+    vi.stubGlobal("fetch", vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        data: [
+          { id: "claude-opus-4-8", owned_by: "anthropic", supported_endpoint_types: ["anthropic"] },
+        ],
+      }),
+    })));
+    const detected = await detectCustomEndpoint("https://cc.freemodel.dev", "k");
+    expect(detected?.api).toBe("anthropic");
+    expect(detected?.models[0].value).toBe("claude-opus-4-8");
+  });
+
+  it("prefers openai when an endpoint advertises both styles", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        data: [{ id: "gpt-5.5", supported_endpoint_types: ["openai", "anthropic"] }],
+      }),
+    })));
+    const detected = await detectCustomEndpoint("https://freemodel.dev", "");
+    expect(detected?.api).toBe("openai");
+  });
+
   it("returns null when nothing responds", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => ({ ok: false })));
     const detected = await detectCustomEndpoint("https://nope.example", "");

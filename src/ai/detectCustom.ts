@@ -28,9 +28,42 @@ async function tryFetchJson(
   }
 }
 
-// Probes {base}/models and {base}/v1/models with both auth styles.
-// Flavor is classified by the response shape: Anthropic model objects
-// carry display_name; OpenAI-style ones don't.
+// Decide the wire protocol from a /models response. Signals, in order:
+//   1. supported_endpoint_types — explicit per-model declaration used by
+//      proxies (freemodel, aerolink). "openai" wins when both are offered
+//      since the OpenAI path is the more universal one.
+//   2. owned_by: "anthropic" with no OpenAI signal → Anthropic.
+//   3. display_name present (real Anthropic /v1/models shape) → Anthropic.
+//   4. default → OpenAI.
+function classifyFlavor(list: any[]): CustomApiFlavor {
+  const types = new Set<string>();
+  for (const m of list) {
+    for (const t of m?.supported_endpoint_types ?? []) types.add(t);
+  }
+  if (types.size > 0) {
+    if (types.has("openai")) return "openai";
+    if (types.has("anthropic")) return "anthropic";
+  }
+  if (list.some((m: any) => m?.owned_by === "anthropic")) return "anthropic";
+  if (list.some((m: any) => m?.display_name)) return "anthropic";
+  return "openai";
+}
+
+function toModels(list: any[], api: CustomApiFlavor): ModelChoice[] {
+  if (api === "anthropic") {
+    return list
+      .filter((m: any) => typeof m?.id === "string")
+      .map((m: any) => ({ name: m.display_name || m.id, value: m.id }));
+  }
+  return list
+    .map((m: any) => m?.id)
+    .filter((id: any) => typeof id === "string" && !NON_CHAT.test(id))
+    .sort()
+    .map((id: string) => ({ name: id, value: id }));
+}
+
+// Probes {base}/models and {base}/v1/models with both auth styles, then
+// classifies the endpoint's wire protocol from the model objects it returns.
 export async function detectCustomEndpoint(
   baseUrl: string,
   apiKey: string
@@ -49,26 +82,8 @@ export async function detectCustomEndpoint(
       const list = data?.data;
       if (!Array.isArray(list) || list.length === 0) continue;
 
-      const isAnthropic = list.some((m: any) => m?.display_name);
-      if (isAnthropic) {
-        return {
-          baseUrl: b,
-          api: "anthropic",
-          models: list.map((m: any) => ({
-            name: m.display_name || m.id,
-            value: m.id,
-          })),
-        };
-      }
-      return {
-        baseUrl: b,
-        api: "openai",
-        models: list
-          .map((m: any) => m?.id)
-          .filter((id: any) => typeof id === "string" && !NON_CHAT.test(id))
-          .sort()
-          .map((id: string) => ({ name: id, value: id })),
-      };
+      const api = classifyFlavor(list);
+      return { baseUrl: b, api, models: toModels(list, api) };
     }
   }
   return null;
