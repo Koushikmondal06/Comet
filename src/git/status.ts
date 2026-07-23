@@ -9,8 +9,9 @@ function parseStatusOutput(output: string): ChangedFile[] {
     .split("\n")
     .filter((line) => line.trim())
     .map((line) => {
-      const statusChar = line[0];
-      const filePath = line.slice(3).trim();
+      const [statusCode, ...pathParts] = line.split(/\s+/);
+      const filePath = pathParts.join(" ");
+      const statusChar = statusCode ? statusCode[0] : "";
       const status = (FILE_STATUS_MAP[statusChar] || "modified") as FileStatus;
       return { path: filePath, status };
     });

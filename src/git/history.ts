@@ -6,14 +6,14 @@ export function getCommitHistory(count: number = 20): CommitHistoryEntry[] {
   try {
     const output = execFileSync(
       "git",
-      ["log", "--oneline", `-${count}`, "--format=%H|%s|%ai"],
+      ["log", `--format=%H\0%s\0%ai`, `-${count}`],
       { encoding: "utf-8", stdio: ["ignore", "pipe", "pipe"] }
     ).trim();
 
     if (!output) return [];
 
     return output.split("\n").map((line) => {
-      const [hash, message, date] = line.split("|");
+      const [hash, message, date] = line.split("\0");
       return {
         hash: hash.trim(),
         message: message.trim(),

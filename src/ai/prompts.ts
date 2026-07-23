@@ -14,7 +14,7 @@ function truncateDiff(diff: string): string {
 // Function replacers so `$`-patterns in diffs/messages are inserted literally
 function fillTemplate(template: string, values: Record<string, string>): string {
   return Object.entries(values).reduce(
-    (result, [key, value]) => result.replace(`{${key}}`, () => value),
+    (result, [key, value]) => result.replaceAll(`{${key}}`, () => value),
     template
   );
 }

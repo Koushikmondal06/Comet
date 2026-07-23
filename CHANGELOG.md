@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.8 (2026-07-23)
+
+### Fixes
+- Fixed bugs and edge cases in prompts, git history, and git status modules (PR #2 by ruyamB)
+
 ## 1.2.5 (2026-07-21)
 
 ### Fixes
